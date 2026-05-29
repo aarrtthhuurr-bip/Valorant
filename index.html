@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TACTIC — FPS Arena</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+    <!-- Canvas de fundo de partículas no menu -->
+    <canvas id="bg-canvas"></canvas>
+
+    <!-- Painel de Compra / Pausa -->
+    <div id="blocker">
+        <div id="blocker-inner">
+            <div id="logo-area">
+                <div id="logo-mark">T</div>
+                <h1 id="logo-text">TACTIC</h1>
+                <div id="logo-sub">ARENA COMBAT SIMULATOR</div>
+            </div>
+
+            <div id="match-banner">
+                <span id="match-title">FASE DE COMPRA</span>
+            </div>
+
+            <p id="blocker-desc">Selecione seu armamento antes de entrar no combate.</p>
+
+            <!-- Loja -->
+            <div id="shop-wrapper">
+                <div id="shop-tabs">
+                    <button class="shop-tab active" data-cat="pistol">PISTOLAS</button>
+                    <button class="shop-tab" data-cat="smg">SMGs</button>
+                    <button class="shop-tab" data-cat="rifle">RIFLES</button>
+                    <button class="shop-tab" data-cat="sniper">SNIPER</button>
+                    <button class="shop-tab" data-cat="shotgun">SHOTGUN</button>
+                    <button class="shop-tab" data-cat="lmg">LMG</button>
+                </div>
+                <div id="shop-grid"></div>
+            </div>
+
+            <div id="buy-bar">
+                <div id="buy-credits">💰 <span id="buy-credits-val">$800</span></div>
+                <button class="btn" id="start-button">▶ ENTRAR NA RODADA</button>
+                <div id="loadout-display">
+                    <span id="ld-slot1">SLOT 1: —</span>
+                    <span id="ld-slot2">SLOT 2: —</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- HUD Superior (Placar) -->
+    <div id="hud">
+        <div id="hud-left">
+            <div class="hud-team">SEU TIME</div>
+            <div id="team-score" class="score-team">0</div>
+        </div>
+        <div id="hud-center">
+            <div class="vs-text">VS</div>
+            <div id="round-timer">—</div>
+        </div>
+        <div id="hud-right">
+            <div class="hud-team">INIMIGOS</div>
+            <div id="enemy-score" class="score-enemy">0</div>
+        </div>
+    </div>
+
+    <!-- Minimap -->
+    <canvas id="minimap"></canvas>
+
+    <!-- HUD Inferior Esquerdo: Arma atual -->
+    <div id="status">
+        <div id="weapon-display">
+            <div id="weapon-icon-area">
+                <svg id="weapon-icon" viewBox="0 0 80 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="2" y="9" width="50" height="8" rx="1" fill="#00ffcc" opacity="0.9"/>
+                    <rect x="52" y="10" width="22" height="6" rx="1" fill="#00ffcc" opacity="0.6"/>
+                    <rect x="18" y="17" width="8" height="5" rx="1" fill="#00ffcc" opacity="0.7"/>
+                </svg>
+            </div>
+            <div id="weapon-info">
+                <div id="weapon-name" class="val">Classic</div>
+                <div id="weapon-slot-label">SLOT 2 · PISTOLA</div>
+            </div>
+        </div>
+        <div id="ammo-display">
+            <span id="ammo-mag" class="ammo-big">12</span>
+            <span id="ammo-sep">/</span>
+            <span id="ammo-res" class="ammo-res">36</span>
+        </div>
+        <div id="reload-bar-wrap" style="display:none">
+            <div id="reload-bar"></div>
+            <div id="reload-label">RECARREGANDO</div>
+        </div>
+    </div>
+
+    <!-- HUD Inferior Direito: Vida + Créditos -->
+    <div id="status-right">
+        <div id="hp-wrap">
+            <div id="hp-label">❤ VITALIDADE</div>
+            <div id="hp-bar-outer"><div id="hp-bar"></div></div>
+            <div id="hp" class="val">100</div>
+        </div>
+        <div id="money-wrap">
+            <div id="money-label">💰 CRÉDITOS</div>
+            <div id="money" class="val money">$800</div>
+        </div>
+    </div>
+
+    <!-- Slot de armas -->
+    <div id="slots-hud">
+        <div class="slot-item" id="slot-1"><div class="slot-key">1</div><div class="slot-name" id="sn1">—</div></div>
+        <div class="slot-item" id="slot-2"><div class="slot-key">2</div><div class="slot-name" id="sn2">Classic</div></div>
+        <div class="slot-item" id="slot-3"><div class="slot-key">3</div><div class="slot-name" id="sn3">Faca</div></div>
+    </div>
+
+    <!-- Retículo -->
+    <div id="crosshair"></div>
+
+    <!-- Hit marker -->
+    <div id="hit-marker"></div>
+
+    <!-- Notificação de kill -->
+    <div id="kill-feed"></div>
+
+    <!-- Dano na tela -->
+    <div id="damage-overlay"></div>
+
+    <!-- Aviso de baixa munição -->
+    <div id="low-ammo-warn"></div>
+
+    <!-- Canvas 3D -->
+    <div id="canvas-container"></div>
+
+    <script src="game.js"></script>
+</body>
+</html>

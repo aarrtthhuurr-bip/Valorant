@@ -94,6 +94,38 @@ body, html {
 
 #blocker-desc { color: var(--text2); font-size: 13px; letter-spacing: 1px; }
 
+/* SELETOR DE IDIOMA */
+#language-selector {
+    display: flex;
+    gap: 12px;
+    background: rgba(0,0,0,0.4);
+    padding: 8px 16px;
+    border-radius: 40px;
+    border: 1px solid var(--border);
+}
+.lang-btn {
+    background: transparent;
+    border: none;
+    color: var(--text2);
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 600;
+    font-size: 12px;
+    padding: 6px 14px;
+    cursor: pointer;
+    border-radius: 30px;
+    transition: all 0.2s;
+    letter-spacing: 1px;
+}
+.lang-btn:hover {
+    color: var(--text);
+    background: rgba(255,255,255,0.05);
+}
+.lang-btn.active {
+    background: var(--teal);
+    color: var(--bg);
+    box-shadow: 0 0 12px var(--teal);
+}
+
 /* ===== SHOP ===== */
 #shop-wrapper {
     width: 100%;
@@ -250,7 +282,6 @@ body, html {
 }
 
 #weapon-display { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
-#weapon-icon-area svg { width: 80px; height: 24px; }
 #weapon-name { font-size: 18px; font-weight: 700; color: var(--teal); }
 #weapon-slot-label { font-size: 10px; color: var(--text2); letter-spacing: 1.5px; margin-top: 2px; }
 
@@ -312,22 +343,9 @@ body, html {
 #crosshair {
     position: absolute; top: 50%; left: 50%;
     transform: translate(-50%, -50%);
-    width: 0; height: 0;
-    pointer-events: none; z-index: 10;
-}
-
-#crosshair::before, #crosshair::after,
-#crosshair .ch-h, #crosshair .ch-v { display: none; }
-
-/* Usamos pseudo com box-shadow para o crosshair em T */
-#crosshair {
-    position: absolute; top: 50%; left: 50%;
-    pointer-events: none; z-index: 10;
     width: 2px; height: 2px;
-    transform: translate(-50%, -50%);
+    pointer-events: none; z-index: 10;
 }
-
-/* Linhas do crosshair via box-shadow */
 #crosshair::before {
     display: block; content: '';
     position: absolute;
@@ -341,14 +359,20 @@ body, html {
          0 -8px 0 1px rgba(0,255,204,0.9),
          0  8px 0 1px rgba(0,255,204,0.9);
     border-radius: 1px;
+    transition: all 0.05s ease;
 }
-
 #crosshair.aiming::before {
     box-shadow:
         -4px 0 0 1px rgba(0,255,204,0.9),
          4px 0 0 1px rgba(0,255,204,0.9),
          0 -4px 0 1px rgba(0,255,204,0.9),
          0  4px 0 1px rgba(0,255,204,0.9);
+}
+#crosshair.shooting::before {
+    transform: translate(-50%, -50%) scale(1.2);
+}
+#crosshair.moving::before {
+    opacity: 0.6;
 }
 
 /* ===== HIT MARKER ===== */
@@ -409,16 +433,7 @@ body, html {
 #low-ammo-warn.visible { opacity: 1; animation: warnPulse 0.5s infinite alternate; }
 @keyframes warnPulse { from{opacity:0.7} to{opacity:1} }
 
-/* ===== MORTO ===== */
-.dead-screen {
-    position: absolute; inset: 0;
-    background: rgba(255,70,85,0.07);
-    pointer-events: none; z-index: 8;
-    animation: deadVignette 0.5s ease-out;
-}
-@keyframes deadVignette { from{opacity:0} to{opacity:1} }
-
-/* ===== SCROLLBAR global ===== */
+/* ===== SCROLLBAR ===== */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--teal); border-radius: 2px; }

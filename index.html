@@ -2,32 +2,45 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>TACTIC — FPS Arena</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js"
+            }
+        }
+    </script>
 </head>
 <body>
 
     <!-- Canvas de fundo de partículas no menu -->
     <canvas id="bg-canvas"></canvas>
 
-    <!-- Painel de Compra / Pausa -->
+    <!-- Painel de Compra / Pausa com seletor de idioma -->
     <div id="blocker">
         <div id="blocker-inner">
             <div id="logo-area">
                 <div id="logo-mark">T</div>
-                <h1 id="logo-text">TACTIC</h1>
-                <div id="logo-sub">ARENA COMBAT SIMULATOR</div>
+                <h1 id="logo-text">TACTIC FPS</h1>
+                <div id="logo-sub">SIMULADOR DE COMBATE EM ARENA</div>
             </div>
 
             <div id="match-banner">
                 <span id="match-title">FASE DE COMPRA</span>
             </div>
 
-            <p id="blocker-desc">Selecione seu armamento antes de entrar no combate.</p>
+            <p id="blocker-desc">SELECIONE SEU ARMAMENTO ANTES DE ENTRAR NO COMBATE.</p>
+
+            <!-- Seletor de idioma -->
+            <div id="language-selector">
+                <button id="lang-pt" class="lang-btn active" data-lang="pt">🇧🇷 PORTUGUÊS</button>
+                <button id="lang-en" class="lang-btn" data-lang="en">🇺🇸 ENGLISH</button>
+                <button id="lang-es" class="lang-btn" data-lang="es">🇪🇸 ESPAÑOL</button>
+            </div>
 
             <!-- Loja -->
             <div id="shop-wrapper">
@@ -76,7 +89,7 @@
     <div id="status">
         <div id="weapon-display">
             <div id="weapon-icon-area">
-                <svg id="weapon-icon" viewBox="0 0 80 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <svg id="weapon-icon" viewBox="0 0 80 24" fill="none">
                     <rect x="2" y="9" width="50" height="8" rx="1" fill="#00ffcc" opacity="0.9"/>
                     <rect x="52" y="10" width="22" height="6" rx="1" fill="#00ffcc" opacity="0.6"/>
                     <rect x="18" y="17" width="8" height="5" rx="1" fill="#00ffcc" opacity="0.7"/>
@@ -136,6 +149,6 @@
     <!-- Canvas 3D -->
     <div id="canvas-container"></div>
 
-    <script src="game.js"></script>
+    <script type="module" src="game.js"></script>
 </body>
 </html>

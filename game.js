@@ -1,363 +1,338 @@
 // ============================================================
-//  TACTIC FPS — game.js
-//  Melhorias: velocidade bala, fireRate, movimentação,
-//  IA avançada, mapa, animações smooth, arsenal expandido
+//  TACTIC FPS — game.js (VALORANT STYLE)
+//  COM SUPORTE A MÚLTIPLOS IDIOMAS (PT/EN/ES)
+//  Áudio procedural DESATIVADO (opcional, descomente para ativar)
 // ============================================================
+
+import * as THREE from 'three';
 
 'use strict';
 
-// ─── PLACAR & CRÉDITOS ───────────────────────────────────────
-let teamScore  = 0;
-let enemyScore = 0;
-let credits    = 800;
+// ==================== SISTEMA DE IDIOMAS ====================
+let currentLang = 'pt'; // 'pt', 'en', 'es'
 
-// ─── ARSENAL COMPLETO ────────────────────────────────────────
-// type: pistol | smg | rifle | sniper | shotgun | lmg | melee
-// bSpeed: velocity do projétil (aumentada geral)
-// spread: cone de dispersão (radianos)
-// pellets: quantidade de projéteis por tiro (shotgun)
-const WEAPON_SHOP = {
-
-    // ── PISTOLAS ──────────────────────────────────────────────
-    "Classic":   {
-        category:"pistol",  type:"pistol",  isAutomatic:false,
-        cost:0,       fireRate:380,  damage:26,   magSize:12,  reserve:36,
-        reloadTime:1100, bSpeed:2.2,  spread:0.03,  pellets:1,
-        color:0x5a5a5a, width:0.07, length:0.32,
-        hasScope:false, zoomFov:70,
-        desc:"Pistola padrão. Precisa e confiável.",
-        autoFire: false
+const LANGUAGES = {
+    pt: {
+        title: "TACTIC FPS",
+        subtitle: "SIMULADOR DE COMBATE EM ARENA",
+        buy_phase: "FASE DE COMPRA",
+        select_weapon: "SELECIONE SEU ARMAMENTO",
+        enter_match: "▶ ENTRAR NA RODADA",
+        your_team: "SEU TIME",
+        enemies: "INIMIGOS",
+        vs: "VS",
+        vitality: "❤ VITALIDADE",
+        credits_label: "💰 CRÉDITOS",
+        pistol: "PISTOLA",
+        smg: "SMG",
+        rifle: "RIFLE",
+        sniper: "SNIPER",
+        shotgun: "SHOTGUN",
+        lmg: "LMG",
+        melee: "MELEE",
+        reloading: "RECARREGANDO",
+        low_ammo: "⚠ BAIXA MUNIÇÃO",
+        spectator: "ESPECTADOR",
+        killed_enemy: "→ Inimigo eliminado",
+        you_died: "💀 Você foi eliminado",
+        ally_kill: "🤝 Aliado → Inimigo eliminado",
+        headshot: "💀 HEADSHOT",
+        victory: "✅ VITÓRIA! +$1900",
+        defeat: "❌ DERROTA. +$1400",
+        slot: "SLOT",
+        shop_pistol: "PISTOLAS",
+        shop_smg: "SMGs",
+        shop_rifle: "RIFLES",
+        shop_sniper: "SNIPER",
+        shop_shotgun: "SHOTGUN",
+        shop_lmg: "LMG",
+        dmg: "DMG",
+        cd: "CD",
+        mag: "Pente"
     },
-    "Shorty":    {
-        category:"pistol",  type:"pistol",  isAutomatic:false,
-        cost:150,     fireRate:700,  damage:12,   magSize:2,   reserve:14,
-        reloadTime:1400, bSpeed:1.6,  spread:0.14,  pellets:5,
-        color:0x3a2a1a, width:0.09, length:0.22,
-        hasScope:false, zoomFov:70,
-        desc:"Pistola dupla de cano curto. Letal a queima-roupa.",
-        autoFire: false
+    en: {
+        title: "TACTIC FPS",
+        subtitle: "ARENA COMBAT SIMULATOR",
+        buy_phase: "BUY PHASE",
+        select_weapon: "SELECT YOUR WEAPON",
+        enter_match: "▶ JOIN MATCH",
+        your_team: "YOUR TEAM",
+        enemies: "ENEMIES",
+        vs: "VS",
+        vitality: "❤ HEALTH",
+        credits_label: "💰 CREDITS",
+        pistol: "PISTOL",
+        smg: "SMG",
+        rifle: "RIFLE",
+        sniper: "SNIPER",
+        shotgun: "SHOTGUN",
+        lmg: "LMG",
+        melee: "MELEE",
+        reloading: "RELOADING",
+        low_ammo: "⚠ LOW AMMO",
+        spectator: "SPECTATOR",
+        killed_enemy: "→ Enemy eliminated",
+        you_died: "💀 You were eliminated",
+        ally_kill: "🤝 Ally → Enemy eliminated",
+        headshot: "💀 HEADSHOT",
+        victory: "✅ VICTORY! +$1900",
+        defeat: "❌ DEFEAT. +$1400",
+        slot: "SLOT",
+        shop_pistol: "PISTOLS",
+        shop_smg: "SMGs",
+        shop_rifle: "RIFLES",
+        shop_sniper: "SNIPER",
+        shop_shotgun: "SHOTGUN",
+        shop_lmg: "LMG",
+        dmg: "DMG",
+        cd: "ROF",
+        mag: "Mag"
     },
-    "Frenzy":    {
-        category:"pistol",  type:"pistol",  isAutomatic:true,
-        cost:450,     fireRate:95,   damage:26,   magSize:13,  reserve:39,
-        reloadTime:1200, bSpeed:2.0,  spread:0.06,  pellets:1,
-        color:0x1a3a2a, width:0.07, length:0.28,
-        hasScope:false, zoomFov:70,
-        desc:"Pistola automática de alta cadência.",
-        autoFire: true
-    },
-    "Ghost":     {
-        category:"pistol",  type:"pistol",  isAutomatic:false,
-        cost:500,     fireRate:400,  damage:30,   magSize:15,  reserve:45,
-        reloadTime:1300, bSpeed:2.4,  spread:0.02,  pellets:1,
-        color:0x2a2a3a, width:0.07, length:0.38,
-        hasScope:false, zoomFov:70,
-        desc:"Pistola silenciada. Alta precisão.",
-        autoFire: false
-    },
-    "Sheriff":   {
-        category:"pistol",  type:"pistol",  isAutomatic:false,
-        cost:800,     fireRate:600,  damage:55,   magSize:6,   reserve:18,
-        reloadTime:1800, bSpeed:2.8,  spread:0.015, pellets:1,
-        color:0xc9a227, width:0.10, length:0.42,
-        hasScope:false, zoomFov:68,
-        desc:"Revólver pesado. Máximo dano de pistola.",
-        autoFire: false
-    },
-
-    // ── SMGs ──────────────────────────────────────────────────
-    "Stinger":   {
-        category:"smg",     type:"smg",     isAutomatic:true,
-        cost:950,     fireRate:60,   damage:27,   magSize:20,  reserve:80,
-        reloadTime:1300, bSpeed:2.2,  spread:0.07,  pellets:1,
-        color:0x334455, width:0.10, length:0.55,
-        hasScope:false, zoomFov:68,
-        desc:"SMG compacta e rapidíssima.",
-        autoFire: true
-    },
-    "Spectre":   {
-        category:"smg",     type:"smg",     isAutomatic:true,
-        cost:1600,    fireRate:90,   damage:26,   magSize:30,  reserve:90,
-        reloadTime:1500, bSpeed:2.3,  spread:0.05,  pellets:1,
-        color:0x1a1a1a, width:0.12, length:0.65,
-        hasScope:true,  zoomFov:52,
-        desc:"SMG precisa com mira integrada.",
-        autoFire: true
-    },
-
-    // ── SHOTGUNS ──────────────────────────────────────────────
-    "Bucky":     {
-        category:"shotgun",  type:"shotgun", isAutomatic:false,
-        cost:900,     fireRate:750,  damage:18,   magSize:5,   reserve:15,
-        reloadTime:2000, bSpeed:1.8,  spread:0.18,  pellets:6,
-        color:0x5a3a2a, width:0.14, length:0.70,
-        hasScope:false, zoomFov:70,
-        desc:"Shotgun pump. Devasta a curta distância.",
-        autoFire: false
-    },
-    "Judge":     {
-        category:"shotgun",  type:"shotgun", isAutomatic:true,
-        cost:1850,    fireRate:370,  damage:17,   magSize:7,   reserve:21,
-        reloadTime:2200, bSpeed:1.7,  spread:0.20,  pellets:6,
-        color:0x2a1a1a, width:0.16, length:0.65,
-        hasScope:false, zoomFov:70,
-        desc:"Shotgun automática. Chuva de chumbo.",
-        autoFire: true
-    },
-
-    // ── RIFLES ────────────────────────────────────────────────
-    "Bulldog":   {
-        category:"rifle",    type:"rifle",   isAutomatic:true,
-        cost:2050,    fireRate:120,  damage:35,   magSize:24,  reserve:72,
-        reloadTime:2000, bSpeed:2.8,  spread:0.04,  pellets:1,
-        color:0x2a4a2a, width:0.13, length:0.80,
-        hasScope:true,  zoomFov:55,
-        desc:"Rifle de assalto equilibrado. Burst de 3 tiros.",
-        autoFire: true
-    },
-    "Guardian":  {
-        category:"rifle",    type:"rifle",   isAutomatic:false,
-        cost:2250,    fireRate:460,  damage:65,   magSize:12,  reserve:36,
-        reloadTime:2100, bSpeed:3.2,  spread:0.005, pellets:1,
-        color:0x3a3a5a, width:0.13, length:0.90,
-        hasScope:true,  zoomFov:45,
-        desc:"Rifle semi-automático. Um tiro, um acerto.",
-        autoFire: false
-    },
-    "Phantom":   {
-        category:"rifle",    type:"rifle",   isAutomatic:true,
-        cost:2900,    fireRate:115,  damage:39,   magSize:30,  reserve:90,
-        reloadTime:2100, bSpeed:3.0,  spread:0.025, pellets:1,
-        color:0x1e3a1e, width:0.14, length:0.92,
-        hasScope:true,  zoomFov:48,
-        desc:"Rifle silenciado. O favorito dos profissionais.",
-        autoFire: true
-    },
-    "Vandal":    {
-        category:"rifle",    type:"rifle",   isAutomatic:true,
-        cost:2900,    fireRate:120,  damage:40,   magSize:25,  reserve:75,
-        reloadTime:2300, bSpeed:3.0,  spread:0.03,  pellets:1,
-        color:0x600000, width:0.14, length:0.95,
-        hasScope:true,  zoomFov:48,
-        desc:"Rifle de alto dano. Domina a médio alcance.",
-        autoFire: true
-    },
-
-    // ── SNIPER ────────────────────────────────────────────────
-    "Marshal":   {
-        category:"sniper",   type:"sniper",  isAutomatic:false,
-        cost:950,     fireRate:1000, damage:101,  magSize:5,   reserve:15,
-        reloadTime:2800, bSpeed:4.5,  spread:0.001, pellets:1,
-        color:0x5a4a2a, width:0.12, length:1.20,
-        hasScope:true,  zoomFov:22,
-        desc:"Sniper leve. Rápida entre os tiros.",
-        autoFire: false
-    },
-    "Operator":  {
-        category:"sniper",   type:"sniper",  isAutomatic:false,
-        cost:4700,    fireRate:1300, damage:200,  magSize:5,   reserve:10,
-        reloadTime:3500, bSpeed:5.0,  spread:0.0,   pellets:1,
-        color:0x3a0a4a, width:0.18, length:1.42,
-        hasScope:true,  zoomFov:18,
-        desc:"Sniper pesada. Um tiro = elimina.",
-        autoFire: false
-    },
-
-    // ── LMG ───────────────────────────────────────────────────
-    "Ares":      {
-        category:"lmg",      type:"lmg",     isAutomatic:true,
-        cost:1600,    fireRate:110,  damage:30,   magSize:50,  reserve:100,
-        reloadTime:3500, bSpeed:2.4,  spread:0.08,  pellets:1,
-        color:0x4a3a1a, width:0.18, length:1.00,
-        hasScope:false, zoomFov:65,
-        desc:"Metralhadora leve. Pente de 50 balas.",
-        autoFire: true
-    },
-    "Odin":      {
-        category:"lmg",      type:"lmg",     isAutomatic:true,
-        cost:3200,    fireRate:100,  damage:38,   magSize:100, reserve:200,
-        reloadTime:5000, bSpeed:2.4,  spread:0.09,  pellets:1,
-        color:0x1a1a1a, width:0.22, length:1.10,
-        hasScope:true,  zoomFov:55,
-        desc:"Metralhadora pesada. 100 balas de devastação.",
-        autoFire: true
-    },
-
-    // ── MELEE ─────────────────────────────────────────────────
-    "Faca":      {
-        category:"melee",    type:"melee",   isAutomatic:false,
-        cost:0,       fireRate:550,  damage:60,   magSize:1,   reserve:0,
-        reloadTime:0,    bSpeed:0.0,  spread:0.0,   pellets:1,
-        color:0xbbbbbb, width:0.04, length:0.38,
-        hasScope:false, zoomFov:75,
-        desc:"Sempre disponível. Letal a queima-roupa.",
-        autoFire: false
+    es: {
+        title: "TACTIC FPS",
+        subtitle: "SIMULADOR DE COMBATE EN ARENA",
+        buy_phase: "FASE DE COMPRA",
+        select_weapon: "SELECCIONA TU ARMA",
+        enter_match: "▶ ENTRAR EN LA RONDA",
+        your_team: "TU EQUIPO",
+        enemies: "ENEMIGOS",
+        vs: "VS",
+        vitality: "❤ VITALIDAD",
+        credits_label: "💰 CRÉDITOS",
+        pistol: "PISTOLA",
+        smg: "SUB",
+        rifle: "FUSIL",
+        sniper: "SNIPER",
+        shotgun: "ESCOPETA",
+        lmg: "AMETRALLADORA",
+        melee: "CUERPO A CUERPO",
+        reloading: "RECARGANDO",
+        low_ammo: "⚠ MUNICIÓN BAJA",
+        spectator: "ESPECTADOR",
+        killed_enemy: "→ Enemigo eliminado",
+        you_died: "💀 Has sido eliminado",
+        ally_kill: "🤝 Aliado → Enemigo eliminado",
+        headshot: "💀 TIRO EN LA CABEZA",
+        victory: "✅ VICTORIA! +$1900",
+        defeat: "❌ DERROTA. +$1400",
+        slot: "RANURA",
+        shop_pistol: "PISTOLAS",
+        shop_smg: "SUB",
+        shop_rifle: "FUSILES",
+        shop_sniper: "SNIPER",
+        shop_shotgun: "ESCOPETAS",
+        shop_lmg: "AMETRALLADORAS",
+        dmg: "DAÑO",
+        cd: "CADENCIA",
+        mag: "Cargador"
     }
 };
 
-const SLOT_CATS = {
-    pistol:  2,
-    smg:     1,
-    rifle:   1,
-    sniper:  1,
-    shotgun: 1,
-    lmg:     1,
-    melee:   3
+function t(key) {
+    return LANGUAGES[currentLang][key] || key;
+}
+
+function setLanguage(lang) {
+    currentLang = lang;
+    // Atualizar botões ativos
+    document.querySelectorAll('.lang-btn').forEach(btn => {
+        if (btn.dataset.lang === lang) btn.classList.add('active');
+        else btn.classList.remove('active');
+    });
+    updateAllUITexts();
+    renderShopGrid(activeShopCat);
+    updateHUD(); // Força atualização de textos dinâmicos
+    updateSlotsHUD();
+}
+
+function updateAllUITexts() {
+    document.getElementById("logo-text").textContent = t('title');
+    document.getElementById("logo-sub").textContent = t('subtitle');
+    document.getElementById("match-title").textContent = t('buy_phase');
+    document.getElementById("blocker-desc").textContent = t('select_weapon');
+    document.getElementById("start-button").textContent = t('enter_match');
+    document.querySelector("#hud-left .hud-team").textContent = t('your_team');
+    document.querySelector("#hud-right .hud-team").textContent = t('enemies');
+    document.querySelector("#hud-center .vs-text").textContent = t('vs');
+    document.getElementById("hp-label").textContent = t('vitality');
+    document.getElementById("money-label").textContent = t('credits_label');
+    // Tabs da loja
+    const tabs = document.querySelectorAll(".shop-tab");
+    if (tabs.length >= 6) {
+        tabs[0].textContent = t('shop_pistol');
+        tabs[1].textContent = t('shop_smg');
+        tabs[2].textContent = t('shop_rifle');
+        tabs[3].textContent = t('shop_sniper');
+        tabs[4].textContent = t('shop_shotgun');
+        tabs[5].textContent = t('shop_lmg');
+    }
+    // reload label
+    const reloadLabel = document.getElementById("reload-label");
+    if (reloadLabel) reloadLabel.textContent = t('reloading');
+    // low ammo warn
+    const lowAmmoWarn = document.getElementById("low-ammo-warn");
+    if (lowAmmoWarn && lowAmmoWarn.classList.contains('visible')) {
+        lowAmmoWarn.textContent = t('low_ammo');
+    }
+    // weapon slot label será atualizado em updateHUD
+}
+
+// ==================== ÁUDIO (DESATIVADO POR PADRÃO) ============
+// Para reativar, descomente as seções abaixo e substitua o objeto sound.
+const sound = {
+    resume: () => {},
+    shoot: () => {},
+    reload: () => {},
+    hit: () => {},
+    kill: () => {},
+    headshot: () => {}
 };
 
-// ─── INVENTÁRIO ──────────────────────────────────────────────
+// ==================== CONFIGURAÇÕES GLOBAIS ====================
+let teamScore = 0;
+let enemyScore = 0;
+let credits = 800;
+let roundNumber = 0;
+const MAP_LIMIT = 78;
+
+// ==================== ARSENAL ================================
+const WEAPON_SHOP = {
+    "Classic": { category:"pistol", type:"pistol", isAutomatic:false, cost:0, fireRate:380, damage:26, magSize:12, reserve:36, reloadTime:1100, bSpeed:2.5, spread:0.02, pellets:1, color:0x5a5a5a, width:0.06, length:0.30, hasScope:false, zoomFov:70, desc:"Pistola padrão.", autoFire:false, soundType:'pistol' },
+    "Shorty": { category:"pistol", type:"pistol", isAutomatic:false, cost:150, fireRate:700, damage:14, magSize:2, reserve:14, reloadTime:1400, bSpeed:1.8, spread:0.12, pellets:5, color:0x3a2a1a, width:0.08, length:0.20, hasScope:false, zoomFov:70, desc:"Pistola curta.", autoFire:false, soundType:'shotgun' },
+    "Frenzy": { category:"pistol", type:"pistol", isAutomatic:true, cost:450, fireRate:85, damage:26, magSize:13, reserve:39, reloadTime:1200, bSpeed:2.2, spread:0.05, pellets:1, color:0x1a3a2a, width:0.06, length:0.26, hasScope:false, zoomFov:70, desc:"Pistola automática.", autoFire:true, soundType:'smg' },
+    "Ghost": { category:"pistol", type:"pistol", isAutomatic:false, cost:500, fireRate:400, damage:32, magSize:15, reserve:45, reloadTime:1300, bSpeed:2.6, spread:0.015, pellets:1, color:0x2a2a3a, width:0.06, length:0.35, hasScope:false, zoomFov:70, desc:"Pistola silenciada.", autoFire:false, soundType:'pistol' },
+    "Sheriff": { category:"pistol", type:"pistol", isAutomatic:false, cost:800, fireRate:600, damage:60, magSize:6, reserve:18, reloadTime:1800, bSpeed:3.0, spread:0.01, pellets:1, color:0xc9a227, width:0.10, length:0.40, hasScope:false, zoomFov:68, desc:"Revólver pesado.", autoFire:false, soundType:'rifle' },
+    "Stinger": { category:"smg", type:"smg", isAutomatic:true, cost:950, fireRate:55, damage:27, magSize:20, reserve:80, reloadTime:1300, bSpeed:2.4, spread:0.06, pellets:1, color:0x334455, width:0.08, length:0.50, hasScope:false, zoomFov:68, desc:"SMG rápida.", autoFire:true, soundType:'smg' },
+    "Spectre": { category:"smg", type:"smg", isAutomatic:true, cost:1600, fireRate:80, damage:28, magSize:30, reserve:90, reloadTime:1500, bSpeed:2.5, spread:0.04, pellets:1, color:0x1a1a1a, width:0.10, length:0.60, hasScope:true, zoomFov:55, desc:"SMG com mira.", autoFire:true, soundType:'smg' },
+    "Bucky": { category:"shotgun", type:"shotgun", isAutomatic:false, cost:900, fireRate:750, damage:20, magSize:5, reserve:15, reloadTime:2000, bSpeed:2.0, spread:0.16, pellets:8, color:0x5a3a2a, width:0.14, length:0.65, hasScope:false, zoomFov:70, desc:"Shotgun pump.", autoFire:false, soundType:'shotgun' },
+    "Judge": { category:"shotgun", type:"shotgun", isAutomatic:true, cost:1850, fireRate:360, damage:18, magSize:7, reserve:21, reloadTime:2200, bSpeed:1.9, spread:0.18, pellets:8, color:0x2a1a1a, width:0.16, length:0.60, hasScope:false, zoomFov:70, desc:"Shotgun auto.", autoFire:true, soundType:'shotgun' },
+    "Bulldog": { category:"rifle", type:"rifle", isAutomatic:true, cost:2050, fireRate:110, damage:35, magSize:24, reserve:72, reloadTime:2000, bSpeed:3.0, spread:0.03, pellets:1, color:0x2a4a2a, width:0.12, length:0.75, hasScope:true, zoomFov:55, desc:"Rifle de assalto.", autoFire:true, soundType:'rifle' },
+    "Guardian": { category:"rifle", type:"rifle", isAutomatic:false, cost:2250, fireRate:450, damage:70, magSize:12, reserve:36, reloadTime:2100, bSpeed:3.5, spread:0.003, pellets:1, color:0x3a3a5a, width:0.12, length:0.85, hasScope:true, zoomFov:45, desc:"Rifle semi-auto.", autoFire:false, soundType:'sniper' },
+    "Phantom": { category:"rifle", type:"rifle", isAutomatic:true, cost:2900, fireRate:100, damage:39, magSize:30, reserve:90, reloadTime:2100, bSpeed:3.2, spread:0.02, pellets:1, color:0x1e3a1e, width:0.13, length:0.88, hasScope:true, zoomFov:50, desc:"Rifle silenciado.", autoFire:true, soundType:'rifle' },
+    "Vandal": { category:"rifle", type:"rifle", isAutomatic:true, cost:2900, fireRate:105, damage:40, magSize:25, reserve:75, reloadTime:2300, bSpeed:3.2, spread:0.025, pellets:1, color:0x600000, width:0.13, length:0.90, hasScope:true, zoomFov:50, desc:"Rifle pesado.", autoFire:true, soundType:'rifle' },
+    "Marshal": { category:"sniper", type:"sniper", isAutomatic:false, cost:950, fireRate:1000, damage:110, magSize:5, reserve:15, reloadTime:2800, bSpeed:5.0, spread:0.001, pellets:1, color:0x5a4a2a, width:0.10, length:1.15, hasScope:true, zoomFov:25, desc:"Sniper leve.", autoFire:false, soundType:'sniper' },
+    "Operator": { category:"sniper", type:"sniper", isAutomatic:false, cost:4700, fireRate:1300, damage:200, magSize:5, reserve:10, reloadTime:3500, bSpeed:6.0, spread:0.0, pellets:1, color:0x3a0a4a, width:0.16, length:1.40, hasScope:true, zoomFov:20, desc:"Sniper pesada.", autoFire:false, soundType:'sniper' },
+    "Ares": { category:"lmg", type:"lmg", isAutomatic:true, cost:1600, fireRate:100, damage:32, magSize:50, reserve:100, reloadTime:3500, bSpeed:2.6, spread:0.07, pellets:1, color:0x4a3a1a, width:0.16, length:0.95, hasScope:false, zoomFov:65, desc:"LMG leve.", autoFire:true, soundType:'lmg' },
+    "Odin": { category:"lmg", type:"lmg", isAutomatic:true, cost:3200, fireRate:90, damage:40, magSize:100, reserve:200, reloadTime:5000, bSpeed:2.6, spread:0.08, pellets:1, color:0x1a1a1a, width:0.20, length:1.05, hasScope:true, zoomFov:55, desc:"LMG pesada.", autoFire:true, soundType:'lmg' },
+    "Faca": { category:"melee", type:"melee", isAutomatic:false, cost:0, fireRate:500, damage:65, magSize:1, reserve:0, reloadTime:0, bSpeed:0, spread:0, pellets:1, color:0xbbbbbb, width:0.04, length:0.36, hasScope:false, zoomFov:75, desc:"Corpo a corpo.", autoFire:false, soundType:'melee' }
+};
+const SLOT_CATS = { pistol:2, smg:1, rifle:1, sniper:1, shotgun:1, lmg:1, melee:3 };
+
+// ==================== INVENTÁRIO DO JOGADOR ====================
 let inventory = { 1: null, 2: "Classic", 3: "Faca" };
 let currentSlot = 3;
 let currentWeaponName = "Faca";
 let isMouseDown = false;
-
 let ammoSlots = {
     1: { inMag: 0, reserve: 0 },
     2: { inMag: 12, reserve: 36 },
-    3: { inMag: 1,  reserve: 0 }
+    3: { inMag: 1, reserve: 0 }
 };
 
-let isReloading      = false;
-let reloadStartTime  = 0;
-let lastShotTime     = 0;
-let isAiming         = false;
-let currentRecoil    = 0;
-let weaponBob        = 0;
-let weaponBobDir     = 1;
-let isMoving         = false;
-let weaponSway       = { x: 0, y: 0 };
-let smoothYaw        = 0;
-let smoothPitch      = 0;
-let targetYaw        = 0;
-let targetPitch      = 0;
+let isReloading = false;
+let lastShotTime = 0;
+let isAiming = false;
+let currentRecoil = 0;
+let weaponBob = 0;
+let isMoving = false;
+let weaponSway = { x: 0, y: 0 };
+let smoothYaw = 0, smoothPitch = 0, targetYaw = 0, targetPitch = 0;
 
-// ─── THREE.JS SETUP ──────────────────────────────────────────
-const scene    = new THREE.Scene();
-scene.background = new THREE.Color(0x080d12);
-scene.fog = new THREE.FogExp2(0x0a1520, 0.008);
+// ==================== DASH ====================================
+let dashCharges = 2;
+let maxDashCharges = 2;
+let dashCooldown = 0;
+let isDashing = false;
+let dashVelocity = { x: 0, z: 0 };
+const DASH_SPEED = 0.5;
+const DASH_DURATION = 0.12;
+const DASH_COOLDOWN_TIME = 3.0;
 
-const camera   = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 500);
+// ==================== THREE.JS SETUP ==========================
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0a1520);
+scene.fog = new THREE.FogExp2(0x0a1520, 0.007);
+
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 500);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 document.getElementById('canvas-container').appendChild(renderer.domElement);
 document.addEventListener('contextmenu', e => e.preventDefault());
 
-// ─── ILUMINAÇÃO ──────────────────────────────────────────────
-const ambient = new THREE.AmbientLight(0x1a2535, 1.0);
-scene.add(ambient);
+// Iluminação
+const ambientLight = new THREE.AmbientLight(0x1a2535, 1.2);
+scene.add(ambientLight);
 
-const sunLight = new THREE.DirectionalLight(0xaaccff, 0.6);
+const sunLight = new THREE.DirectionalLight(0xaaccff, 0.7);
 sunLight.position.set(40, 80, 40);
 sunLight.castShadow = true;
 sunLight.shadow.mapSize.set(2048, 2048);
-sunLight.shadow.camera.near = 0.5;
-sunLight.shadow.camera.far  = 300;
-sunLight.shadow.camera.left = -80;
-sunLight.shadow.camera.right = 80;
-sunLight.shadow.camera.top  = 80;
-sunLight.shadow.camera.bottom = -80;
 scene.add(sunLight);
 
-const fillLight = new THREE.DirectionalLight(0xff6644, 0.2);
+const fillLight = new THREE.DirectionalLight(0xff6644, 0.25);
 fillLight.position.set(-40, 20, -40);
 scene.add(fillLight);
 
-// Luzes pontual decorativas
-function addPointLight(x, y, z, color, intensity, dist) {
-    const pl = new THREE.PointLight(color, intensity, dist);
-    pl.position.set(x, y, z);
-    scene.add(pl);
-    return pl;
-}
-const dynamicLights = [];
-dynamicLights.push(addPointLight(0,   8, 0,   0x0044ff, 0.5, 40));
-dynamicLights.push(addPointLight(35,  6, 35,  0xff4400, 0.5, 35));
-dynamicLights.push(addPointLight(-35, 6, -35, 0x00ff88, 0.5, 35));
-dynamicLights.push(addPointLight(35,  6, -35, 0xff0044, 0.4, 35));
-
-// ─── GRUPO DA ARMA (acoplado à câmera) ───────────────────────
+// Grupo da arma (acoplado à câmera)
 const weaponGroup = new THREE.Group();
 camera.add(weaponGroup);
 scene.add(camera);
 
-// ─── MAPA ────────────────────────────────────────────────────
-const MAP_LIMIT = 78;
-
-// Piso com textura de grade emissiva
-const floorGeo = new THREE.PlaneGeometry(160, 160, 32, 32);
-const floorMat = new THREE.MeshStandardMaterial({
-    color: 0x111820, roughness: 0.9, metalness: 0.1
-});
-const floor = new THREE.Mesh(floorGeo, floorMat);
+// ==================== MAPA E OBSTÁCULOS =======================
+const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(160, 160),
+    new THREE.MeshStandardMaterial({ color: 0x111820, roughness: 0.9 })
+);
 floor.rotation.x = -Math.PI / 2;
 floor.receiveShadow = true;
 scene.add(floor);
 
-// Teto translúcido
-const ceilGeo = new THREE.PlaneGeometry(160, 160);
-const ceilMat = new THREE.MeshStandardMaterial({ color: 0x0a0e14, transparent: true, opacity: 0.3 });
-const ceil = new THREE.Mesh(ceilGeo, ceilMat);
-ceil.rotation.x = Math.PI / 2;
-ceil.position.y = 12;
-scene.add(ceil);
-
-// Grade estilizada
-const grid = new THREE.GridHelper(160, 80, 0x0a2030, 0x0a1822);
-grid.position.y = 0.02;
-scene.add(grid);
-
 let obstacles = [];
 let obstacleMeshes = [];
 let decorMeshes = [];
+let coverSpots = [];
 
-// Materiais de obstáculos
-const obsMats = [
+const obsMaterials = [
     new THREE.MeshStandardMaterial({ color: 0x1a2535, roughness: 0.7, metalness: 0.3 }),
     new THREE.MeshStandardMaterial({ color: 0x2a1a1a, roughness: 0.6, metalness: 0.2 }),
     new THREE.MeshStandardMaterial({ color: 0x1a2a1a, roughness: 0.8, metalness: 0.1 }),
-    new THREE.MeshStandardMaterial({ color: 0x2a2535, roughness: 0.5, metalness: 0.4 }),
+    new THREE.MeshStandardMaterial({ color: 0x2a2535, roughness: 0.5, metalness: 0.4 })
 ];
 
-function buildObstacle(x, z, w, h, d, matIdx=0) {
-    const geo  = new THREE.BoxGeometry(1, 1, 1);
-    const mesh = new THREE.Mesh(geo, obsMats[matIdx % obsMats.length]);
+function buildObstacle(x, z, w, h, d, matIdx = 0) {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), obsMaterials[matIdx % 4]);
     mesh.scale.set(w, h, d);
-    mesh.position.set(x, h/2, z);
-    mesh.castShadow    = true;
+    mesh.position.set(x, h / 2, z);
+    mesh.castShadow = true;
     mesh.receiveShadow = true;
     scene.add(mesh);
     obstacles.push({ x, z, w, d });
     obstacleMeshes.push(mesh);
+
+    if (w > 2.5 && d > 2.5) {
+        coverSpots.push(
+            { x: x + w / 2 + 1.2, z: z, occupied: false },
+            { x: x - w / 2 - 1.2, z: z, occupied: false },
+            { x: x, z: z + d / 2 + 1.2, occupied: false },
+            { x: x, z: z - d / 2 - 1.2, occupied: false }
+        );
+    }
     return mesh;
 }
 
-// Coluna decorativa com luz
-function buildColumn(x, z, color=0x00ffcc) {
-    const col = buildObstacle(x, z, 1.2, 8, 1.2, 0);
-    const top = new THREE.Mesh(
-        new THREE.BoxGeometry(1.8, 0.3, 1.8),
-        new THREE.MeshStandardMaterial({ color: 0x223344, emissive: color, emissiveIntensity: 0.5 })
-    );
-    top.position.set(x, 8.15, z);
-    scene.add(top);
-    decorMeshes.push(top);
-    addPointLight(x, 9, z, color, 0.6, 18);
-}
-
-// Caixas empilhadas
-function buildCrates(cx, cz, rows=2, cols=2, matIdx=0) {
-    for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
+function buildCrates(cx, cz) {
+    for (let r = 0; r < 2; r++) {
+        for (let c = 0; c < 2; c++) {
             const s = 1.4 + Math.random() * 0.3;
-            const mesh = buildObstacle(
-                cx + c * 1.6 - (cols - 1) * 0.8,
+            buildObstacle(
+                cx + c * 1.6 - 0.8,
                 cz + (Math.random() - 0.5) * 0.5,
-                s, s, s, matIdx
+                s, s, s,
+                Math.floor(Math.random() * 4)
             );
-            mesh.rotation.y = (Math.random() - 0.5) * 0.3;
         }
     }
 }
@@ -365,665 +340,262 @@ function buildCrates(cx, cz, rows=2, cols=2, matIdx=0) {
 function generateRandomMap() {
     obstacleMeshes.forEach(m => scene.remove(m));
     decorMeshes.forEach(m => scene.remove(m));
-    obstacles = []; obstacleMeshes = []; decorMeshes = [];
+    obstacles = [];
+    obstacleMeshes = [];
+    decorMeshes = [];
+    coverSpots = [];
 
-    // Paredes perimetrais
-    buildObstacle(0,   80, 160, 10, 2, 0);
-    buildObstacle(0,  -80, 160, 10, 2, 0);
-    buildObstacle(80,   0, 2,  10, 160, 0);
-    buildObstacle(-80,  0, 2,  10, 160, 0);
+    buildObstacle(0, 80, 160, 10, 2);
+    buildObstacle(0, -80, 160, 10, 2);
+    buildObstacle(80, 0, 2, 10, 160);
+    buildObstacle(-80, 0, 2, 10, 160);
 
     const style = Math.floor(Math.random() * 4);
+    switch (style) {
+        case 0:
+            buildObstacle(-28, 0, 10, 9, 50, 1);
+            buildObstacle(28, 0, 10, 9, 50, 1);
+            buildObstacle(0, 0, 14, 7, 14, 2);
+            buildCrates(-14, 28);
+            buildCrates(14, -28);
+            break;
+        case 1:
+            for (let i = 0; i < 20; i++) {
+                const rx = (Math.random() - 0.5) * 120;
+                const rz = (Math.random() - 0.5) * 120;
+                if (Math.hypot(rx, rz) > 15) {
+                    buildObstacle(rx, rz, 3 + Math.random() * 5, 2 + Math.random() * 4, 3 + Math.random() * 5, Math.floor(Math.random() * 4));
+                }
+            }
+            break;
+        case 2:
+            buildObstacle(-35, -15, 38, 7, 6, 1);
+            buildObstacle(35, 15, 38, 7, 6, 1);
+            break;
+        default:
+            buildObstacle(-20, -50, 4, 8, 45);
+            buildObstacle(20, 50, 4, 8, 45);
+            break;
+    }
 
-    if (style === 0) {
-        // Mapa urbano com corridors
-        buildObstacle(-28, 0, 10, 9, 50, 1);
-        buildObstacle( 28, 0, 10, 9, 50, 1);
-        buildObstacle(0, 0, 14, 7, 14, 2);
-        buildColumn(-55, 22, 0x00ffcc);
-        buildColumn( 55,-22, 0xff4655);
-        buildColumn(-55,-22, 0x0044ff);
-        buildColumn( 55, 22, 0xffaa00);
-        buildCrates(-14, 28, 2, 2, 3);
-        buildCrates( 14,-28, 2, 2, 2);
-        buildObstacle(-55, 0, 8, 5, 24, 2);
-        buildObstacle( 55, 0, 8, 5, 24, 2);
-        buildCrates(0, 38, 1, 3, 1);
-        buildCrates(0,-38, 1, 3, 1);
-
-    } else if (style === 1) {
-        // Mapa aberto com cobertura espalhada
-        for (let i = 0; i < 18; i++) {
-            const rx = (Math.random() - 0.5) * 120;
-            const rz = (Math.random() - 0.5) * 120;
-            if (Math.hypot(rx, rz) > 15 && Math.abs(rz) > 12) {
-                const rw = 3 + Math.random() * 6;
-                const rh = 2 + Math.random() * 5;
-                buildObstacle(rx, rz, rw, rh, rw, Math.floor(Math.random() * 4));
+    if (coverSpots.length === 0) {
+        for (let i = -60; i <= 60; i += 40) {
+            for (let j = -60; j <= 60; j += 40) {
+                if (!checkCollision(i, j, 0.5)) {
+                    coverSpots.push({ x: i, z: j, occupied: false });
+                }
             }
         }
-        buildColumn( 40,  40, 0x00ffcc);
-        buildColumn(-40, -40, 0xff4655);
-        buildColumn( 40, -40, 0x0044ff);
-        buildColumn(-40,  40, 0xffaa00);
-
-    } else if (style === 2) {
-        // Mapa simétrico competitivo
-        buildObstacle(-35,-15, 38, 7, 6, 1);
-        buildObstacle( 35, 15, 38, 7, 6, 1);
-        buildObstacle(0, -32, 18, 5, 8, 2);
-        buildObstacle(0,  32, 18, 5, 8, 2);
-        buildObstacle(-58, 0, 6, 8, 28, 3);
-        buildObstacle( 58, 0, 6, 8, 28, 3);
-        buildCrates(-18,  0, 2, 3, 0);
-        buildCrates( 18,  0, 2, 3, 0);
-        buildCrates(-35, 35, 1, 2, 2);
-        buildCrates( 35,-35, 1, 2, 2);
-        buildColumn(0, 0, 0xffffff);
-
-    } else {
-        // Mapa labirinto
-        buildObstacle(-20,-50, 4, 8, 45, 0);
-        buildObstacle( 20, 50, 4, 8, 45, 0);
-        buildObstacle(-55,-20, 45, 8, 4, 1);
-        buildObstacle( 55, 20, 45, 8, 4, 1);
-        buildObstacle(-40,  20, 4, 6, 22, 2);
-        buildObstacle( 40, -20, 4, 6, 22, 2);
-        buildColumn(-10,-10, 0xff4655);
-        buildColumn( 10, 10, 0x00ffcc);
-        buildCrates(-55, 55, 2, 2, 3);
-        buildCrates( 55,-55, 2, 2, 3);
-        buildCrates(0, 0, 1, 2, 1);
     }
 }
 
-// ─── VISUAL DA ARMA (3D) ─────────────────────────────────────
+// ==================== FUNÇÕES AUXILIARES =======================
+function checkCollision(x, z, size = 0.7) {
+    if (Math.abs(x) > MAP_LIMIT || Math.abs(z) > MAP_LIMIT) return true;
+    for (let obs of obstacles) {
+        const hw = obs.w / 2 + size;
+        const hd = obs.d / 2 + size;
+        if (x > obs.x - hw && x < obs.x + hw && z > obs.z - hd && z < obs.z + hd) return true;
+    }
+    return false;
+}
+
+function hasLineOfSight(x1, z1, x2, z2) {
+    const dx = x2 - x1;
+    const dz = z2 - z1;
+    const dist = Math.hypot(dx, dz);
+    const steps = Math.ceil(dist / 0.5);
+    for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        if (checkCollision(x1 + dx * t, z1 + dz * t, 0.4)) return false;
+    }
+    return true;
+}
+
+// ==================== ARMA 3D =================================
 function buildWeaponMesh(name) {
     const group = new THREE.Group();
     if (!name) return group;
     const d = WEAPON_SHOP[name];
-
     if (d.type === "melee") {
-        // Faca
-        const blade = new THREE.Mesh(
-            new THREE.BoxGeometry(0.018, 0.06, d.length),
-            new THREE.MeshStandardMaterial({ color: 0xdddddd, metalness: 0.95, roughness: 0.05 })
-        );
+        const blade = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.05, d.length), new THREE.MeshStandardMaterial({ color: 0xdddddd, metalness: 0.95 }));
         blade.rotation.x = Math.PI / 4;
         group.add(blade);
-
-        const guard = new THREE.Mesh(
-            new THREE.BoxGeometry(0.05, 0.07, 0.015),
-            new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.7 })
-        );
-        guard.position.set(0, -0.01, 0.12);
+        const guard = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.08, 0.02), new THREE.MeshStandardMaterial({ color: 0x111111 }));
+        guard.position.set(0, -0.02, 0.1);
         group.add(guard);
-
-        const handle = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.018, 0.015, 0.15, 8),
-            new THREE.MeshStandardMaterial({ color: 0x220000, roughness: 0.9 })
-        );
+        const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.015, 0.16, 8), new THREE.MeshStandardMaterial({ color: 0x220000 }));
         handle.rotation.x = Math.PI / 2;
-        handle.position.set(0, -0.02, 0.19);
+        handle.position.set(0, -0.03, 0.18);
         group.add(handle);
         return group;
     }
-
-    const W = d.width, L = d.length;
-
-    // Corpo principal
-    const body = new THREE.Mesh(
-        new THREE.BoxGeometry(W, W * 1.3, L),
-        new THREE.MeshStandardMaterial({ color: d.color, metalness: 0.55, roughness: 0.25 })
-    );
+    const W = d.width;
+    const L = d.length;
+    const body = new THREE.Mesh(new THREE.BoxGeometry(W, W * 1.3, L), new THREE.MeshStandardMaterial({ color: d.color, metalness: 0.55, roughness: 0.25 }));
     group.add(body);
-
-    // Trilho superior (rail)
-    const rail = new THREE.Mesh(
-        new THREE.BoxGeometry(W * 0.55, W * 0.22, L * 0.92),
-        new THREE.MeshStandardMaterial({ color: 0x282828, metalness: 0.85, roughness: 0.1 })
-    );
-    rail.position.set(0, W * 0.76, -L * 0.03);
-    group.add(rail);
-
-    // Cano
-    const barrel = new THREE.Mesh(
-        new THREE.CylinderGeometry(W * 0.12, W * 0.1, L * 0.85, 10),
-        new THREE.MeshStandardMaterial({ color: 0x151515, metalness: 0.9, roughness: 0.1 })
-    );
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(W * 0.1, W * 0.08, L * 0.85, 10), new THREE.MeshStandardMaterial({ color: 0x151515, metalness: 0.9 }));
     barrel.rotation.x = Math.PI / 2;
     barrel.position.set(0, W * 0.1, -L * 0.35);
     group.add(barrel);
-
-    // Carregador
-    const mag = new THREE.Mesh(
-        new THREE.BoxGeometry(W * 0.7, W * 1.4, L * 0.18),
-        new THREE.MeshStandardMaterial({ color: 0x101010, roughness: 0.55 })
-    );
+    const mag = new THREE.Mesh(new THREE.BoxGeometry(W * 0.7, W * 1.4, L * 0.18), new THREE.MeshStandardMaterial({ color: 0x101010 }));
     mag.position.set(0, -W * 1.05, L * 0.1);
     group.add(mag);
-
-    // Coronha
-    const stock = new THREE.Mesh(
-        new THREE.BoxGeometry(W * 0.5, W * 0.9, L * 0.25),
-        new THREE.MeshStandardMaterial({ color: d.color, roughness: 0.4 })
-    );
-    stock.position.set(0, -W * 0.05, L * 0.5);
-    group.add(stock);
-
-    // Cabo / punho
-    const grip = new THREE.Mesh(
-        new THREE.BoxGeometry(W * 0.55, W * 1.1, L * 0.09),
-        new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: 0.9 })
-    );
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(W * 0.55, W * 1.1, L * 0.09), new THREE.MeshStandardMaterial({ color: 0x0a0a0a }));
     grip.position.set(0, -W * 1.0, L * 0.28);
     group.add(grip);
-
-    // Boca do cano (flash hider)
-    const flash = new THREE.Mesh(
-        new THREE.CylinderGeometry(W * 0.15, W * 0.18, W * 0.4, 8),
-        new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.8 })
-    );
-    flash.rotation.x = Math.PI / 2;
-    flash.position.set(0, W * 0.1, -L * 0.52);
-    group.add(flash);
-
-    // Mira frontal
     if (d.hasScope) {
-        const scopeBody = new THREE.Mesh(
-            new THREE.CylinderGeometry(W * 0.22, W * 0.22, L * 0.35, 12),
-            new THREE.MeshStandardMaterial({ color: 0x080808, metalness: 0.9 })
-        );
-        scopeBody.rotation.x = Math.PI / 2;
-        scopeBody.position.set(0, W * 0.97, -L * 0.05);
-        group.add(scopeBody);
-
-        const lens = new THREE.Mesh(
-            new THREE.CircleGeometry(W * 0.18, 12),
-            new THREE.MeshStandardMaterial({ color: 0x0022ff, transparent: true, opacity: 0.5, emissive: 0x0044ff, emissiveIntensity: 0.3 })
-        );
-        lens.position.set(0, W * 0.97, -L * 0.22);
-        group.add(lens);
+        const scope = new THREE.Mesh(new THREE.CylinderGeometry(W * 0.2, W * 0.2, L * 0.3, 12), new THREE.MeshStandardMaterial({ color: 0x080808, metalness: 0.9 }));
+        scope.rotation.x = Math.PI / 2;
+        scope.position.set(0, W * 0.9, -L * 0.05);
+        group.add(scope);
     }
-
-    // Tipos especiais
-    if (d.type === "sniper") {
-        const bipod1 = new THREE.Mesh(
-            new THREE.BoxGeometry(W * 0.08, W * 0.8, W * 0.08),
-            new THREE.MeshStandardMaterial({ color: 0x222222 })
-        );
-        bipod1.position.set(-W * 0.4, -W * 0.45, -L * 0.3);
-        group.add(bipod1);
-        const bipod2 = bipod1.clone();
-        bipod2.position.x = W * 0.4;
-        group.add(bipod2);
-    }
-
-    if (d.type === "shotgun") {
-        const pump = new THREE.Mesh(
-            new THREE.BoxGeometry(W * 0.9, W * 0.5, L * 0.22),
-            new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.9 })
-        );
-        pump.position.set(0, -W * 0.2, -L * 0.2);
-        group.add(pump);
-    }
-
-    if (d.type === "lmg") {
-        const drum = new THREE.Mesh(
-            new THREE.CylinderGeometry(W * 0.9, W * 0.9, W * 0.6, 16),
-            new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.5 })
-        );
-        drum.position.set(0, -W * 1.05, L * 0.18);
-        group.add(drum);
-    }
-
     return group;
 }
 
 function updateWeaponVisual() {
     while (weaponGroup.children.length > 0) weaponGroup.remove(weaponGroup.children[0]);
     if (player.hp <= 0 || !currentWeaponName) return;
-    const mesh = buildWeaponMesh(currentWeaponName);
-    weaponGroup.add(mesh);
+    weaponGroup.add(buildWeaponMesh(currentWeaponName));
     resetWeaponPosition();
 }
 
 function resetWeaponPosition() {
     if (!currentWeaponName) return;
     const d = WEAPON_SHOP[currentWeaponName];
+    weaponGroup.rotation.set(0, 0, 0);
     if (isAiming && d.hasScope) {
-        weaponGroup.position.set(0, -0.17, -0.38);
-        weaponGroup.rotation.set(0, 0, 0);
+        weaponGroup.position.set(0, -0.12, -0.30);
+    } else if (d.type === "melee") {
+        weaponGroup.position.set(0.20, -0.32, -0.35);
     } else {
-        if (d.type === "melee") {
-            weaponGroup.position.set(0.22, -0.28, -0.38);
-        } else {
-            weaponGroup.position.set(0.30, -0.23, -0.58);
-        }
-        weaponGroup.rotation.set(0, 0, 0);
+        weaponGroup.position.set(0.28, -0.24, -0.55);
     }
 }
 
-// ─── PLAYER ──────────────────────────────────────────────────
-let player = { x: 0, z: 62, hp: 100, maxHp: 100, speed: 0.15, yaw: 0, pitch: 0 };
+// ==================== MODELOS HUMANOIDES ======================
+function createHumanoid(color, emissive) {
+    const group = new THREE.Group();
+    const mat = new THREE.MeshStandardMaterial({ color, emissive, emissiveIntensity: 0.3, roughness: 0.6 });
+    const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.40, 1.0, 8), mat);
+    torso.position.y = 1.2;
+    group.add(torso);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 10), mat);
+    head.position.y = 1.95;
+    group.add(head);
+    for (let s = -1; s <= 1; s += 2) {
+        const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.12, 0.8, 6), mat);
+        arm.position.set(s * 0.45, 1.3, 0);
+        group.add(arm);
+    }
+    for (let s = -1; s <= 1; s += 2) {
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, 0.9, 6), mat);
+        leg.position.set(s * 0.15, 0.4, 0);
+        group.add(leg);
+    }
+    group.castShadow = true;
+    return group;
+}
+
+// ==================== JOGADOR E ENTIDADES =====================
+let player = { x: 0, z: 62, hp: 100, maxHp: 100, speed: 0.16, yaw: 0, pitch: 0 };
 camera.position.set(player.x, 1.9, player.z);
 
-let allies  = [];
+let allies = [];
 let enemies = [];
 let bullets = [];
 
-// ─── BOT WEAPONS POR NÍVEL ───────────────────────────────────
 const BOT_WEAPON_SETS = [
-    ["Classic","Ghost"],
-    ["Spectre","Bulldog","Phantom"],
-    ["Vandal","Operator","Odin"]
+    ["Classic", "Ghost"],
+    ["Spectre", "Bulldog", "Phantom"],
+    ["Vandal", "Operator", "Odin"]
 ];
 
-let roundNumber = 0;
-
 function spawnBot(type, x, z) {
-    const color    = type === 'ally' ? 0x00ffcc : 0xff4655;
+    const color = type === 'ally' ? 0x00ffcc : 0xff4655;
     const emissive = type === 'ally' ? 0x004433 : 0x330000;
-    const bodyGeo  = new THREE.CylinderGeometry(0.55, 0.55, 1.8, 12);
-    const bodyMat  = new THREE.MeshStandardMaterial({ color, emissive, emissiveIntensity: 0.3, roughness: 0.6 });
-    const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
-    bodyMesh.castShadow = true;
-    bodyMesh.position.set(x, 0.9, z);
-    scene.add(bodyMesh);
+    const model = createHumanoid(color, emissive);
+    model.position.set(x, 0, z);
+    scene.add(model);
 
-    const headGeo  = new THREE.SphereGeometry(0.38, 10, 10);
-    const headMat  = new THREE.MeshStandardMaterial({ color, emissive, emissiveIntensity: 0.4 });
-    const headMesh = new THREE.Mesh(headGeo, headMat);
-    headMesh.position.set(x, 2.1, z);
-    headMesh.castShadow = true;
-    scene.add(headMesh);
-
-    // Arma do bot (3D)
-    const tier   = Math.min(Math.floor(roundNumber / 2), BOT_WEAPON_SETS.length - 1);
-    const wSet   = BOT_WEAPON_SETS[tier];
-    const wName  = wSet[Math.floor(Math.random() * wSet.length)];
+    const tier = Math.min(Math.floor(roundNumber / 2), 2);
+    const weapons = BOT_WEAPON_SETS[tier];
+    const wName = weapons[Math.floor(Math.random() * weapons.length)];
     const wGroup = buildWeaponMesh(wName);
-    wGroup.scale.setScalar(0.65);
-    wGroup.position.set(0.5, 0.4, -0.2);
-    bodyMesh.add(wGroup);
+    wGroup.scale.setScalar(0.55);
+    wGroup.position.set(0.35, 1.1, -0.3);
+    model.add(wGroup);
 
     const bot = {
-        type, bodyMesh, headMesh, weaponMesh: wGroup,
-        x, z, hp: 100,
-        lastShot: 0,
-        speed: type === 'enemy' ? (0.07 + roundNumber * 0.005) : 0.06,
+        type, model, weaponMesh: wGroup,
+        x, z, hp: 100, lastShot: 0,
+        speed: type === 'enemy' ? 0.07 + roundNumber * 0.005 : 0.06,
         weapon: wName,
-        strafeTimer: 0,
-        strafeDir: 1,
-        state: 'idle',    // idle | chase | strafe | retreat
-        coverPos: null,
-        alertTimer: 0,
-        alive: true
+        strafeTimer: 0, strafeDir: 1, state: 'idle',
+        coverPos: null, coverTimer: 0, alive: true, dying: false, deathTimer: 0
     };
-
-    if (type === 'ally') allies.push(bot); else enemies.push(bot);
+    if (type === 'ally') allies.push(bot);
+    else enemies.push(bot);
 }
 
 function removeBot(bot, list, idx) {
     bot.alive = false;
-    scene.remove(bot.bodyMesh);
-    scene.remove(bot.headMesh);
-    list.splice(idx, 1);
-}
-
-// ─── RESET DE RODADA ─────────────────────────────────────────
-function resetRound() {
-    bullets.forEach(b => { scene.remove(b.mesh); if (b.trail) b.trail.forEach(t => scene.remove(t)); });
-    bullets = [];
-    allies.forEach(a  => { scene.remove(a.bodyMesh); scene.remove(a.headMesh); });
-    enemies.forEach(e => { scene.remove(e.bodyMesh); scene.remove(e.headMesh); });
-    allies = []; enemies = [];
-
-    generateRandomMap();
-    roundNumber++;
-
-    player.x = 0; player.z = 62; player.hp = 100;
-    camera.position.set(player.x, 1.9, player.z);
-    player.yaw = 0; player.pitch = 0;
-    targetYaw = 0; targetPitch = 0;
-    camera.rotation.order = "YXZ";
-    camera.rotation.set(0, 0, 0);
-
-    isReloading = false;
-    isAiming = false;
-    isMouseDown = false;
-    camera.fov = 75;
-    camera.updateProjectionMatrix();
-
-    for (let slot in inventory) {
-        if (inventory[slot]) {
-            const w = WEAPON_SHOP[inventory[slot]];
-            ammoSlots[slot].inMag   = w.magSize;
-            ammoSlots[slot].reserve = w.reserve;
-        }
-    }
-
-    currentSlot = 2;
-    currentWeaponName = inventory[2] || "Faca";
-    if (!inventory[2]) { currentSlot = 3; currentWeaponName = "Faca"; }
-
-    updateHUD();
-    updateWeaponVisual();
-    updateSlotsHUD();
-
-    // Spawn balanceado por round
-    const allyCount   = 2 + Math.min(roundNumber - 1, 2);
-    const enemyCount  = 3 + Math.min(roundNumber - 1, 4);
-    const spawnRadius = 55;
-
-    for (let i = 0; i < allyCount; i++) {
-        spawnBot('ally', (Math.random() - 0.5) * 30, spawnRadius - Math.random() * 10);
-    }
-    for (let i = 0; i < enemyCount; i++) {
-        const angle = (i / enemyCount) * Math.PI * 2;
-        spawnBot('enemy',
-            Math.cos(angle) * (20 + Math.random() * 20),
-            -spawnRadius + Math.random() * 15
-        );
-    }
-
-    setupShopInterface();
-    drawMinimap();
-}
-
-// ─── HUD ─────────────────────────────────────────────────────
-function updateHUD() {
-    document.getElementById("hp").textContent = Math.max(0, Math.ceil(player.hp));
-    const hpPct = Math.max(0, player.hp / player.maxHp * 100);
-    const hpBar = document.getElementById("hp-bar");
-    hpBar.style.width = hpPct + "%";
-    hpBar.style.background = hpPct > 50 ? 'var(--teal)' : hpPct > 25 ? '#ffaa00' : 'var(--red)';
-    hpBar.style.boxShadow  = `0 0 8px ${hpPct > 50 ? 'var(--teal)' : hpPct > 25 ? '#ffaa00' : 'var(--red)'}`;
-
-    document.getElementById("money").textContent = "$" + credits;
-    document.getElementById("buy-credits-val").textContent = "$" + credits;
-
-    if (player.hp <= 0 || !currentWeaponName) {
-        document.getElementById("weapon-name").textContent = "ESPECTADOR";
-        document.getElementById("ammo-mag").textContent = "--";
-        document.getElementById("ammo-res").textContent = "--";
-        return;
-    }
-
-    const d = WEAPON_SHOP[currentWeaponName];
-    let wLabel = currentWeaponName;
-    if (isAiming && d.hasScope) wLabel += " ◉";
-    document.getElementById("weapon-name").textContent = wLabel;
-
-    const catNames = {
-        pistol:"PISTOLA", smg:"SMG", rifle:"RIFLE",
-        sniper:"SNIPER", shotgun:"SHOTGUN", lmg:"LMG", melee:"MELEE"
-    };
-    document.getElementById("weapon-slot-label").textContent =
-        `SLOT ${currentSlot} · ${catNames[d.category] || d.type.toUpperCase()}`;
-
-    if (isReloading) {
-        document.getElementById("reload-bar-wrap").style.display = "block";
-        document.getElementById("ammo-mag").textContent = "--";
-    } else {
-        document.getElementById("reload-bar-wrap").style.display = "none";
-        const ammo = ammoSlots[currentSlot];
-        document.getElementById("ammo-mag").textContent = d.type === "melee" ? "∞" : ammo.inMag;
-        document.getElementById("ammo-res").textContent = d.type === "melee" ? "" : ammo.reserve;
-
-        // Alerta de baixa munição
-        const warn = document.getElementById("low-ammo-warn");
-        if (d.type !== "melee" && ammo.inMag <= Math.ceil(d.magSize * 0.25) && ammo.inMag > 0) {
-            warn.textContent = "⚠ BAIXA MUNIÇÃO";
-            warn.classList.add("visible");
-        } else {
-            warn.classList.remove("visible");
-        }
-    }
-}
-
-function updateSlotsHUD() {
-    [1,2,3].forEach(i => {
-        const el = document.getElementById(`slot-${i}`);
-        const sn = document.getElementById(`sn${i}`);
-        el.classList.toggle("active", currentSlot === i);
-        sn.textContent = inventory[i] || "—";
-    });
-    const ld1 = document.getElementById("ld-slot1");
-    const ld2 = document.getElementById("ld-slot2");
-    if (ld1) ld1.textContent = "SLOT 1: " + (inventory[1] || "—");
-    if (ld2) ld2.textContent = "SLOT 2: " + (inventory[2] || "Classic");
-}
-
-// ─── HIT MARKER ──────────────────────────────────────────────
-function flashHitMarker() {
-    const hm = document.getElementById("hit-marker");
-    hm.classList.add("flash");
-    setTimeout(() => hm.classList.remove("flash"), 120);
-}
-
-function flashDamage() {
-    const ov = document.getElementById("damage-overlay");
-    ov.classList.add("hit");
-    setTimeout(() => ov.classList.remove("hit"), 400);
-}
-
-function addKillFeed(text) {
-    const feed = document.getElementById("kill-feed");
-    const el   = document.createElement("div");
-    el.className = "kill-entry";
-    el.textContent = text;
-    feed.appendChild(el);
-    setTimeout(() => { el.style.opacity = "0"; el.style.transition = "opacity 0.5s"; setTimeout(() => el.remove(), 500); }, 2500);
-    while (feed.children.length > 4) feed.removeChild(feed.firstChild);
-}
-
-// ─── SHOP ────────────────────────────────────────────────────
-const SHOP_CATS = ["pistol","smg","rifle","sniper","shotgun","lmg"];
-let activeShopCat = "pistol";
-
-function setupShopInterface() {
-    document.getElementById("buy-credits-val").textContent = "$" + credits;
-    updateSlotsHUD();
-    renderShopGrid(activeShopCat);
-
-    document.querySelectorAll(".shop-tab").forEach(tab => {
-        tab.onclick = () => {
-            document.querySelectorAll(".shop-tab").forEach(t => t.classList.remove("active"));
-            tab.classList.add("active");
-            activeShopCat = tab.dataset.cat;
-            renderShopGrid(activeShopCat);
-        };
-    });
-}
-
-function renderShopGrid(cat) {
-    const grid = document.getElementById("shop-grid");
-    grid.innerHTML = "";
-
-    Object.entries(WEAPON_SHOP).forEach(([name, w]) => {
-        if (w.category !== cat) return;
-        if (name === "Faca") return;
-
-        const targetSlot = SLOT_CATS[w.category] || 1;
-        const isEquipped = inventory[targetSlot] === name;
-        const cantAfford = credits < w.cost && !isEquipped;
-
-        const card = document.createElement("div");
-        card.className = "shop-card" + (isEquipped ? " equipped" : "") + (cantAfford ? " cant-afford" : "");
-
-        const autoLabel = w.isAutomatic ? "AUTO" : "SEMI";
-        card.innerHTML = `
-            <div class="sc-name">${name}</div>
-            <div class="sc-cost">$${w.cost}</div>
-            <div class="sc-stats">DMG ${w.damage} · CD ${w.fireRate}ms · Pente ${w.magSize}</div>
-            <div class="sc-stats" style="color:var(--text2);font-size:9px">${w.desc}</div>
-            <div class="sc-badge ${w.isAutomatic ? 'auto' : ''}">${autoLabel}</div>
-        `;
-
-        if (!cantAfford) {
-            card.onclick = () => {
-                if (isEquipped) return;
-                credits -= w.cost;
-                inventory[targetSlot] = name;
-                ammoSlots[targetSlot].inMag   = w.magSize;
-                ammoSlots[targetSlot].reserve = w.reserve;
-
-                currentSlot = targetSlot;
-                currentWeaponName = name;
-                isReloading = false; isAiming = false; isMouseDown = false;
-                camera.fov = 75; camera.updateProjectionMatrix();
-
-                updateHUD();
-                updateWeaponVisual();
-                updateSlotsHUD();
-                renderShopGrid(cat);
-            };
-        }
-
-        grid.appendChild(card);
-    });
-}
-
-// ─── TROCA DE SLOT ───────────────────────────────────────────
-function switchSlot(n) {
-    if (player.hp <= 0 || isReloading) return;
-    if (!inventory[n]) return;
-    if (currentSlot === n) return;
-
-    isAiming = false; camera.fov = 75; camera.updateProjectionMatrix();
-    currentSlot = n;
-    currentWeaponName = inventory[n];
-    isMouseDown = false;
-
-    // Animação de troca: abaixa e sobe a arma
-    animWeaponSwitch();
-    updateHUD();
-    updateSlotsHUD();
-    updateWeaponVisual();
-}
-
-// ─── ANIMAÇÕES SMOOTH ─────────────────────────────────────────
-let weaponSwitchAnim = 0;   // 0 = normal, >0 = saindo, <0 = entrando
-let aimTransition   = 0;    // 0 = hip, 1 = aimed
-
-function animWeaponSwitch() {
-    weaponSwitchAnim = 1;
-}
-
-function updateWeaponAnims(delta) {
-    if (!currentWeaponName) return;
-    const d = WEAPON_SHOP[currentWeaponName];
-
-    // Transição de mira suave
-    const aimTarget = (isAiming && d.hasScope) ? 1 : 0;
-    aimTransition += (aimTarget - aimTransition) * Math.min(1, delta * 18);
-
-    // Bob ao andar
-    if (isMoving && !isAiming) {
-        weaponBob += delta * 8;
-        const bobAmt = 0.012;
-        weaponGroup.position.y += Math.sin(weaponBob) * bobAmt;
-        weaponGroup.position.x += Math.cos(weaponBob * 0.5) * bobAmt * 0.5;
-    } else {
-        weaponBob *= 0.9;
-    }
-
-    // Sway suave ao mover a câmera
-    const swayX = (targetYaw   - smoothYaw)   * 0.04;
-    const swayY = (targetPitch - smoothPitch)  * 0.04;
-    weaponSway.x += (swayX - weaponSway.x) * 0.1;
-    weaponSway.y += (swayY - weaponSway.y) * 0.1;
-    weaponGroup.rotation.y += weaponSway.x * 0.5;
-    weaponGroup.rotation.x += weaponSway.y * 0.3;
-
-    // Recuo suave
-    if (currentRecoil > 0) {
-        currentRecoil -= delta * 6;
-        if (currentRecoil < 0) currentRecoil = 0;
-    }
-    weaponGroup.position.z += currentRecoil;
-
-    // Animação de troca de arma
-    if (weaponSwitchAnim > 0) {
-        weaponGroup.position.y -= weaponSwitchAnim * 0.12;
-        weaponSwitchAnim -= delta * 10;
-        if (weaponSwitchAnim <= 0) { weaponSwitchAnim = 0; resetWeaponPosition(); }
-    }
-
-    // Posição alvo ao mirar (smooth)
-    let targetPos;
-    if (d.type === "melee") {
-        targetPos = new THREE.Vector3(0.22, -0.28, -0.38);
-    } else if (aimTransition > 0.01) {
-        const hip = new THREE.Vector3(0.30, -0.23, -0.58);
-        const aim = new THREE.Vector3(0, -0.17, -0.38);
-        targetPos = hip.lerp(aim, aimTransition);
-    } else {
-        targetPos = new THREE.Vector3(0.30, -0.23, -0.58);
-    }
-    weaponGroup.position.lerp(targetPos, Math.min(1, delta * 14));
-}
-
-// ─── RELOAD ──────────────────────────────────────────────────
-function reloadWeapon() {
-    if (player.hp <= 0 || !currentWeaponName || currentWeaponName === "Faca") return;
-    const d = WEAPON_SHOP[currentWeaponName];
-    const ammo = ammoSlots[currentSlot];
-    if (isReloading || ammo.inMag === d.magSize || ammo.reserve <= 0) return;
-
-    isReloading = true;
-    reloadStartTime = Date.now();
-    isAiming = false; isMouseDown = false;
-    camera.fov = 75; camera.updateProjectionMatrix();
-
-    document.getElementById("reload-bar-wrap").style.display = "block";
-    const bar = document.getElementById("reload-bar");
-    bar.style.transition = `width ${d.reloadTime}ms linear`;
-    bar.style.width = "0%";
-    setTimeout(() => { bar.style.width = "100%"; }, 30);
-
-    // Animação da arma descendo
-    weaponGroup.position.y -= 0.08;
-
-    updateHUD();
-
+    bot.dying = true;
+    bot.deathTimer = 1.0;
     setTimeout(() => {
-        if (!isReloading) return;
-        const need = d.magSize - ammo.inMag;
-        const take = Math.min(need, ammo.reserve);
-        ammo.inMag   += take;
-        ammo.reserve -= take;
-        isReloading   = false;
-        bar.style.transition = "none";
-        bar.style.width = "0%";
-        document.getElementById("reload-bar-wrap").style.display = "none";
-        updateHUD();
-    }, d.reloadTime);
+        scene.remove(bot.model);
+        if (bot.coverPos) bot.coverPos.occupied = false;
+        list.splice(idx, 1);
+    }, 1000);
 }
 
-// ─── TIRO ─────────────────────────────────────────────────────
+function updateDyingBots(delta) {
+    [...allies, ...enemies].forEach(bot => {
+        if (bot.dying) {
+            bot.deathTimer -= delta;
+            bot.model.rotation.x = Math.min(Math.PI / 2, (1 - bot.deathTimer) * 2);
+            bot.model.position.y = Math.max(0, bot.deathTimer * 1.2);
+            bot.model.children.forEach(child => {
+                if (child.material) child.material.opacity = Math.max(0, bot.deathTimer);
+            });
+        }
+    });
+}
+
+// ==================== TIRO E BALAS ============================
+function createBullet(pos, dir, owner, weaponData) {
+    const color = owner === 'player' ? 0x00ffcc : 0xff8800;
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 6), new THREE.MeshBasicMaterial({ color }));
+    mesh.position.copy(pos);
+    scene.add(mesh);
+    bullets.push({
+        mesh,
+        dir: dir.clone().normalize(),
+        velocity: weaponData.bSpeed,
+        life: 180,
+        owner,
+        damage: weaponData.damage
+    });
+}
+
 function shootCurrentWeapon() {
     if (isReloading || player.hp <= 0 || !currentWeaponName) return;
-
-    const d   = WEAPON_SHOP[currentWeaponName];
+    const d = WEAPON_SHOP[currentWeaponName];
     const now = Date.now();
     if (now - lastShotTime < d.fireRate) return;
 
     if (d.type === "melee") {
         lastShotTime = now;
-        // Animação facada
-        weaponGroup.position.z -= 0.18;
-        setTimeout(() => { if (currentWeaponName === "Faca") resetWeaponPosition(); }, 100);
-
+        sound.shoot('melee');
         for (let j = enemies.length - 1; j >= 0; j--) {
-            const en   = enemies[j];
-            const dist = Math.hypot(camera.position.x - en.x, camera.position.z - en.z);
-            if (dist < 2.8) {
+            const en = enemies[j];
+            if (Math.hypot(camera.position.x - en.x, camera.position.z - en.z) < 2.8) {
                 en.hp -= d.damage;
                 flashHitMarker();
-                addKillFeed(`🗡 ${currentWeaponName} → Inimigo`);
+                sound.hit();
+                addKillFeed(`🗡 ${currentWeaponName} → ${t('killed_enemy')}`);
                 if (en.hp <= 0) {
+                    sound.kill();
                     removeBot(en, enemies, j);
                     credits += 300;
                     updateHUD();
@@ -1043,278 +615,536 @@ function shootCurrentWeapon() {
 
     ammo.inMag--;
     lastShotTime = now;
-    currentRecoil = 0.045;
-
-    // Recuo visual extra para armas pesadas
-    if (d.type === "lmg" || d.type === "sniper") currentRecoil = 0.09;
-
+    currentRecoil = 0.04;
+    sound.shoot(d.soundType || d.type);
     updateHUD();
+
+    const crosshair = document.getElementById("crosshair");
+    if (crosshair) {
+        crosshair.classList.add("shooting");
+        setTimeout(() => crosshair.classList.remove("shooting"), 80);
+    }
 
     const dir = new THREE.Vector3();
     camera.getWorldDirection(dir);
-
-    const spreadMult = isAiming ? 0.25 : 1.0;
-    const sp = d.spread * spreadMult;
-
+    const spread = d.spread * (isAiming ? 0.2 : 1.0);
     for (let p = 0; p < d.pellets; p++) {
         const shotDir = dir.clone();
-        if (sp > 0) {
-            shotDir.x += (Math.random() - 0.5) * sp;
-            shotDir.y += (Math.random() - 0.5) * sp;
-            shotDir.z += (Math.random() - 0.5) * sp;
+        if (spread > 0) {
+            shotDir.x += (Math.random() - 0.5) * spread;
+            shotDir.y += (Math.random() - 0.5) * spread;
+            shotDir.z += (Math.random() - 0.5) * spread;
         }
         shotDir.normalize();
-
         const spawnPos = camera.position.clone();
-        if (isAiming && d.hasScope) {
-            spawnPos.y -= 0.18;
-        } else {
-            const right = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0,1,0)).normalize();
-            spawnPos.addScaledVector(right, 0.30);
-            spawnPos.y -= 0.24;
-        }
-
+        if (isAiming && d.hasScope) spawnPos.y -= 0.15;
+        else spawnPos.y -= 0.22;
         createBullet(spawnPos, shotDir, 'player', d);
     }
-
-    // Efeito de muzzle flash
-    muzzleFlash();
 }
 
-function muzzleFlash() {
-    const flash = new THREE.PointLight(0xffaa44, 3, 2.5);
-    const tip   = new THREE.Vector3(0, 0, -1.5);
-    camera.localToWorld(tip);
-    flash.position.copy(tip);
-    scene.add(flash);
-    setTimeout(() => scene.remove(flash), 40);
-}
+// ==================== RECARGA =================================
+function reloadWeapon() {
+    if (player.hp <= 0 || !currentWeaponName || currentWeaponName === "Faca") return;
+    const d = WEAPON_SHOP[currentWeaponName];
+    const ammo = ammoSlots[currentSlot];
+    if (isReloading || ammo.inMag === d.magSize || ammo.reserve <= 0) return;
+    isReloading = true;
+    isAiming = false;
+    isMouseDown = false;
+    camera.fov = 75;
+    camera.updateProjectionMatrix();
+    sound.reload();
 
-function createBullet(pos, dir, owner, weaponData) {
-    const speed  = weaponData.bSpeed;
-    const color  = owner === 'player' ? 0x00ffcc : owner === 'enemy' ? 0xff8800 : 0x88ffdd;
-    const size   = weaponData.width * 0.3;
-
-    const geo  = new THREE.SphereGeometry(Math.max(0.04, size), 6, 6);
-    const mat  = new THREE.MeshBasicMaterial({ color });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.copy(pos);
-    scene.add(mesh);
-
-    // Trail (rastro luminoso)
-    const trailMat  = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.4 });
-    const trailGeo  = new THREE.BufferGeometry();
-    const trailPts  = [pos.clone(), pos.clone()];
-    trailGeo.setFromPoints(trailPts);
-    const trail = new THREE.Line(trailGeo, trailMat);
-    scene.add(trail);
-
-    const damage = weaponData.damage;
-    const maxLife = weaponData.type === "sniper" ? 300 : 180;
-
-    bullets.push({
-        mesh, trail, trailPts,
-        dir: dir.clone().normalize(),
-        velocity: speed,
-        life: maxLife,
-        owner,
-        damage,
-        weaponType: weaponData.type
-    });
-}
-
-// ─── COLISÃO ─────────────────────────────────────────────────
-function checkCollision(x, z, size = 0.7) {
-    if (Math.abs(x) > MAP_LIMIT || Math.abs(z) > MAP_LIMIT) return true;
-    for (let obs of obstacles) {
-        const hw = obs.w / 2 + size;
-        const hd = obs.d / 2 + size;
-        if (x > obs.x - hw && x < obs.x + hw &&
-            z > obs.z - hd && z < obs.z + hd) return true;
+    const barWrap = document.getElementById("reload-bar-wrap");
+    const bar = document.getElementById("reload-bar");
+    if (barWrap) barWrap.style.display = "block";
+    if (bar) {
+        bar.style.transition = `width ${d.reloadTime}ms linear`;
+        bar.style.width = "0%";
+        setTimeout(() => { bar.style.width = "100%"; }, 30);
     }
-    return false;
+    updateHUD();
+
+    setTimeout(() => {
+        if (!isReloading) return;
+        const need = d.magSize - ammo.inMag;
+        const take = Math.min(need, ammo.reserve);
+        ammo.inMag += take;
+        ammo.reserve -= take;
+        isReloading = false;
+        if (bar) { bar.style.transition = "none"; bar.style.width = "0%"; }
+        if (barWrap) barWrap.style.display = "none";
+        updateHUD();
+    }, d.reloadTime);
 }
 
-// ─── IA DOS BOTS (AVANÇADA) ───────────────────────────────────
+// ==================== DASH ====================================
+function performDash() {
+    if (dashCharges <= 0 || isDashing || player.hp <= 0) return;
+    dashCharges--;
+    isDashing = true;
+    const dir = new THREE.Vector3();
+    camera.getWorldDirection(dir);
+    dir.y = 0;
+    dir.normalize();
+    let dashDir = dir.clone();
+    if (keys['a']) dashDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2);
+    if (keys['d']) dashDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 2);
+    if (keys['s']) dashDir.multiplyScalar(-1);
+    dashVelocity.x = dashDir.x * DASH_SPEED;
+    dashVelocity.z = dashDir.z * DASH_SPEED;
+    updateDashHUD();
+    setTimeout(() => {
+        isDashing = false;
+        dashVelocity.x = 0;
+        dashVelocity.z = 0;
+    }, DASH_DURATION * 1000);
+    if (dashCharges < maxDashCharges) dashCooldown = DASH_COOLDOWN_TIME;
+}
+
+function updateDashCooldown(delta) {
+    if (dashCharges < maxDashCharges && dashCooldown > 0) {
+        dashCooldown -= delta;
+        if (dashCooldown <= 0) {
+            dashCharges = Math.min(maxDashCharges, dashCharges + 1);
+            dashCooldown = dashCharges < maxDashCharges ? DASH_COOLDOWN_TIME : 0;
+            updateDashHUD();
+        }
+    }
+}
+
+// ==================== IA DOS BOTS =============================
 function runBotAI(bot, delta) {
-    if (!bot.alive) return;
-
-    const isEnemy = (bot.type === 'enemy');
-    let targetPos = null;
-
+    if (!bot.alive || bot.dying) return;
+    const isEnemy = bot.type === 'enemy';
+    let tx, tz;
     if (isEnemy) {
-        if (player.hp > 0) targetPos = camera.position;
-        else if (allies.length > 0) targetPos = allies[0].bodyMesh.position;
+        if (player.hp > 0) { tx = player.x; tz = player.z; }
+        else if (allies.length > 0) { tx = allies[0].x; tz = allies[0].z; }
+        else return;
     } else {
-        if (enemies.length > 0) targetPos = enemies[0].bodyMesh.position;
+        if (enemies.length > 0) { tx = enemies[0].x; tz = enemies[0].z; }
+        else return;
     }
 
-    if (!targetPos) return;
+    const dx = tx - bot.x;
+    const dz = tz - bot.z;
+    const dist = Math.hypot(dx, dz);
+    const los = hasLineOfSight(bot.x, bot.z, tx, tz);
 
-    const toX = targetPos.x - bot.x;
-    const toZ = targetPos.z - bot.z;
-    const dist = Math.hypot(toX, toZ);
-
-    // MACHINE DE ESTADOS
-    if (dist > 45)      bot.state = 'chase';
-    else if (dist < 6)  bot.state = 'retreat';
-    else {
-        bot.strafeTimer -= delta;
-        if (bot.strafeTimer <= 0) {
-            bot.strafeTimer = 0.8 + Math.random() * 1.2;
-            bot.strafeDir   = Math.random() > 0.5 ? 1 : -1;
-            bot.state = Math.random() > 0.35 ? 'strafe' : 'chase';
+    bot.coverTimer -= delta;
+    if (!los && bot.coverTimer <= 0 && coverSpots.length > 0) {
+        let bestCover = null;
+        let bestScore = -Infinity;
+        for (let s of coverSpots) {
+            if (s.occupied && s.occupied !== bot) continue;
+            const distToCover = Math.hypot(bot.x - s.x, bot.z - s.z);
+            if (distToCover < 20 && !hasLineOfSight(s.x, s.z, tx, tz) && Math.hypot(s.x - tx, s.z - tz) > 10) {
+                const score = -distToCover + Math.hypot(s.x - tx, s.z - tz) * 0.5;
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestCover = s;
+                }
+            }
+        }
+        if (bestCover) {
+            if (bot.coverPos) bot.coverPos.occupied = false;
+            bot.coverPos = bestCover;
+            bestCover.occupied = bot;
+            bot.state = 'take_cover';
+            bot.coverTimer = 3;
         }
     }
 
-    let moveX = 0, moveZ = 0;
-
-    if (bot.state === 'chase') {
-        moveX = toX / dist;
-        moveZ = toZ / dist;
-    } else if (bot.state === 'strafe') {
-        // Strafing lateral em relação ao alvo
-        const perp = new THREE.Vector3(-toZ / dist, 0, toX / dist);
-        moveX = perp.x * bot.strafeDir + (toX / dist) * 0.15;
-        moveZ = perp.z * bot.strafeDir + (toZ / dist) * 0.15;
-    } else if (bot.state === 'retreat') {
-        moveX = -(toX / dist);
-        moveZ = -(toZ / dist);
+    if (los && bot.state === 'take_cover') {
+        bot.state = 'chase';
+        if (bot.coverPos) {
+            bot.coverPos.occupied = false;
+            bot.coverPos = null;
+        }
     }
 
-    // Velocidade variável
-    let spd = bot.speed;
-    if (bot.state === 'retreat') spd *= 1.3;
-    if (isEnemy && dist < 20)    spd *= 1.1;
-
-    const nx = bot.x + moveX * spd;
-    const nz = bot.z + moveZ * spd;
-
-    if (!checkCollision(nx, nz, 1.0)) {
-        bot.x = nx; bot.z = nz;
-    } else {
-        // Desvio de obstáculo: tenta alternativas
-        if (!checkCollision(bot.x + moveX * spd, bot.z, 1.0)) {
-            bot.x += moveX * spd;
-        } else if (!checkCollision(bot.x, bot.z + moveZ * spd, 1.0)) {
-            bot.z += moveZ * spd;
+    let mx = 0, mz = 0;
+    if (bot.state === 'take_cover' && bot.coverPos) {
+        const cvx = bot.coverPos.x - bot.x;
+        const cvz = bot.coverPos.z - bot.z;
+        const cvd = Math.hypot(cvx, cvz);
+        if (cvd > 0.5) {
+            mx = cvx / cvd;
+            mz = cvz / cvd;
         } else {
-            bot.strafeDir *= -1;
-            bot.strafeTimer = 0;
+            bot.state = 'idle';
         }
+    } else if (dist < 6 && los) {
+        mx = -dx / dist;
+        mz = -dz / dist;
+    } else {
+        mx = dx / dist;
+        mz = dz / dist;
     }
 
-    bot.bodyMesh.position.set(bot.x, 0.9, bot.z);
-    bot.headMesh.position.set(bot.x, 2.1, bot.z);
+    let spd = bot.speed;
+    if (bot.state === 'take_cover') spd *= 1.4;
+    const nx = bot.x + mx * spd;
+    const nz = bot.z + mz * spd;
+    if (!checkCollision(nx, nz, 1.0)) {
+        bot.x = nx;
+        bot.z = nz;
+    } else {
+        bot.strafeDir *= -1;
+    }
 
-    // Rotação suave em direção ao alvo
-    const angle = Math.atan2(toX, toZ);
-    bot.bodyMesh.rotation.y = angle;
+    bot.model.position.set(bot.x, 0, bot.z);
+    bot.model.rotation.y = Math.atan2(dx, dz);
 
-    // DISPARO
-    const wData = WEAPON_SHOP[bot.weapon];
-    const now   = Date.now();
-    // Inimigos atiram mais devagar que o player; aliados ainda menos
-    const rateMultiplier = isEnemy ? 1.6 : 2.2;
-    if (now - bot.lastShot > wData.fireRate * rateMultiplier) {
-        const accuracy = isEnemy
-            ? Math.min(0.07, dist * 0.0018)
-            : Math.min(0.14, dist * 0.004);
-
+    const weaponData = WEAPON_SHOP[bot.weapon];
+    const now = Date.now();
+    if (now - bot.lastShot > weaponData.fireRate * (isEnemy ? 1.5 : 2.2) && los) {
+        const accuracy = isEnemy ? 0.05 : 0.08;
         const shotDir = new THREE.Vector3(
-            toX / dist + (Math.random() - 0.5) * accuracy,
+            dx / dist + (Math.random() - 0.5) * accuracy,
             0.1 + (Math.random() - 0.5) * accuracy,
-            toZ / dist + (Math.random() - 0.5) * accuracy
+            dz / dist + (Math.random() - 0.5) * accuracy
         ).normalize();
-
-        const spawnPos = bot.bodyMesh.position.clone();
-        spawnPos.y = 1.6;
-        createBullet(spawnPos, shotDir, bot.type, wData);
+        const spawnPos = new THREE.Vector3(bot.x, 1.6, bot.z);
+        createBullet(spawnPos, shotDir, bot.type, weaponData);
         bot.lastShot = now;
     }
 }
 
-// ─── MINIMAP ─────────────────────────────────────────────────
-function drawMinimap() {
-    const c   = document.getElementById("minimap");
-    const ctx = c.getContext("2d");
-    const W   = c.width, H = c.height;
-    const S   = W / (MAP_LIMIT * 2);
+// ==================== HUD E UI ================================
+function updateHUD() {
+    document.getElementById("hp").textContent = Math.max(0, Math.ceil(player.hp));
+    const hpPct = Math.max(0, (player.hp / player.maxHp) * 100);
+    const hpBar = document.getElementById("hp-bar");
+    if (hpBar) {
+        hpBar.style.width = hpPct + "%";
+        hpBar.style.background = hpPct > 50 ? 'var(--teal)' : (hpPct > 25 ? '#ffaa00' : 'var(--red)');
+    }
+    document.getElementById("money").textContent = "$" + credits;
+    document.getElementById("buy-credits-val").textContent = "$" + credits;
 
-    ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = "rgba(10,14,20,0.9)";
-    ctx.fillRect(0, 0, W, H);
+    if (player.hp <= 0 || !currentWeaponName) {
+        document.getElementById("weapon-name").textContent = t('spectator');
+        document.getElementById("ammo-mag").textContent = "--";
+        document.getElementById("ammo-res").textContent = "--";
+        return;
+    }
 
-    // Obstáculos
-    ctx.fillStyle = "#1a2535";
-    obstacles.forEach(obs => {
-        const px = (obs.x + MAP_LIMIT) * S - obs.w * S / 2;
-        const py = (obs.z + MAP_LIMIT) * S - obs.d * S / 2;
-        ctx.fillRect(px, py, obs.w * S, obs.d * S);
-    });
-
-    // Aliados
-    ctx.fillStyle = "#00ffcc";
-    allies.forEach(a => {
-        const px = (a.x + MAP_LIMIT) * S;
-        const py = (a.z + MAP_LIMIT) * S;
-        ctx.beginPath(); ctx.arc(px, py, 3, 0, Math.PI*2); ctx.fill();
-    });
-
-    // Inimigos
-    ctx.fillStyle = "#ff4655";
-    enemies.forEach(e => {
-        const px = (e.x + MAP_LIMIT) * S;
-        const py = (e.z + MAP_LIMIT) * S;
-        ctx.beginPath(); ctx.arc(px, py, 3, 0, Math.PI*2); ctx.fill();
-    });
-
-    // Player
-    if (player.hp > 0) {
-        const px = (player.x + MAP_LIMIT) * S;
-        const py = (player.z + MAP_LIMIT) * S;
-        ctx.fillStyle = "#ffffff";
-        ctx.beginPath(); ctx.arc(px, py, 4, 0, Math.PI*2); ctx.fill();
-
-        // Direção da câmera
-        ctx.strokeStyle = "#ffffff";
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(px, py);
-        ctx.lineTo(
-            px - Math.sin(player.yaw) * 10,
-            py - Math.cos(player.yaw) * 10
-        );
-        ctx.stroke();
+    const d = WEAPON_SHOP[currentWeaponName];
+    document.getElementById("weapon-name").textContent = currentWeaponName;
+    const cats = { pistol: t('pistol'), smg: t('smg'), rifle: t('rifle'), sniper: t('sniper'), shotgun: t('shotgun'), lmg: t('lmg'), melee: t('melee') };
+    document.getElementById("weapon-slot-label").textContent = `${t('slot')} ${currentSlot} · ${cats[d.category] || d.type.toUpperCase()}`;
+    if (isReloading) {
+        document.getElementById("reload-bar-wrap").style.display = "block";
+        document.getElementById("ammo-mag").textContent = "--";
+    } else {
+        document.getElementById("reload-bar-wrap").style.display = "none";
+        const ammo = ammoSlots[currentSlot];
+        document.getElementById("ammo-mag").textContent = d.type === "melee" ? "∞" : ammo.inMag;
+        document.getElementById("ammo-res").textContent = d.type === "melee" ? "" : ammo.reserve;
+        const warn = document.getElementById("low-ammo-warn");
+        if (d.type !== "melee" && ammo.inMag <= Math.ceil(d.magSize * 0.25) && ammo.inMag > 0) {
+            warn.textContent = t('low_ammo');
+            warn.classList.add("visible");
+        } else {
+            warn.classList.remove("visible");
+        }
     }
 }
 
-// ─── CONTROLES ───────────────────────────────────────────────
-const blocker     = document.getElementById('blocker');
-const startButton = document.getElementById('start-button');
+function updateSlotsHUD() {
+    [1, 2, 3].forEach(i => {
+        const slotEl = document.getElementById(`slot-${i}`);
+        const nameEl = document.getElementById(`sn${i}`);
+        if (slotEl) slotEl.classList.toggle("active", currentSlot === i);
+        if (nameEl) nameEl.textContent = inventory[i] || "—";
+    });
+    document.getElementById("ld-slot1").textContent = `${t('slot')} 1: ${inventory[1] || "—"}`;
+    document.getElementById("ld-slot2").textContent = `${t('slot')} 2: ${inventory[2] || "Classic"}`;
+}
 
-startButton.addEventListener('click', () => document.body.requestPointerLock());
+function updateDashHUD() {
+    // Elementos opcionais, se existirem
+    const dash1 = document.getElementById("dash1");
+    const dash2 = document.getElementById("dash2");
+    if (dash1) dash1.classList.toggle("used", dashCharges < 1);
+    if (dash2) dash2.classList.toggle("used", dashCharges < 2);
+}
 
-document.addEventListener('pointerlockchange', () => {
-    if (document.pointerLockElement === document.body) {
-        blocker.style.display = 'none';
-    } else {
-        blocker.style.display = 'flex';
-        document.getElementById('match-title').textContent = "FASE DE COMPRA / PAUSA";
-        startButton.textContent = "▶ CONFIRMAR ENTRADA";
-        isAiming = false; isMouseDown = false;
-        camera.fov = 75; camera.updateProjectionMatrix();
-        setupShopInterface();
+function flashHitMarker() {
+    const hm = document.getElementById("hit-marker");
+    if (hm) { hm.classList.add("flash"); setTimeout(() => hm.classList.remove("flash"), 120); }
+}
+
+function flashDamage() {
+    const ov = document.getElementById("damage-overlay");
+    if (ov) { ov.classList.add("hit"); setTimeout(() => ov.classList.remove("hit"), 400); }
+}
+
+function addKillFeed(text) {
+    const feed = document.getElementById("kill-feed");
+    if (!feed) return;
+    const entry = document.createElement("div");
+    entry.className = "kill-entry";
+    entry.textContent = text;
+    feed.appendChild(entry);
+    setTimeout(() => { entry.style.opacity = "0"; setTimeout(() => entry.remove(), 500); }, 2500);
+    while (feed.children.length > 4) feed.removeChild(feed.firstChild);
+}
+
+function updateCrosshair() {
+    const ch = document.getElementById("crosshair");
+    if (ch) {
+        ch.classList.toggle("moving", isMoving && !isAiming);
+        ch.classList.toggle("aiming", isAiming);
     }
+}
+
+function drawMinimap() {
+    const canvas = document.getElementById("minimap");
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const W = canvas.width, H = canvas.height;
+    const S = W / (MAP_LIMIT * 2);
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = "rgba(10,20,30,0.8)";
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = "#1a2535";
+    obstacles.forEach(o => {
+        ctx.fillRect((o.x + MAP_LIMIT) * S - o.w * S / 2, (o.z + MAP_LIMIT) * S - o.d * S / 2, o.w * S, o.d * S);
+    });
+    ctx.fillStyle = "#00f0ff";
+    allies.forEach(a => {
+        ctx.beginPath();
+        ctx.arc((a.x + MAP_LIMIT) * S, (a.z + MAP_LIMIT) * S, 3, 0, Math.PI * 2);
+        ctx.fill();
+    });
+    ctx.fillStyle = "#ff4455";
+    enemies.forEach(e => {
+        ctx.beginPath();
+        ctx.arc((e.x + MAP_LIMIT) * S, (e.z + MAP_LIMIT) * S, 3, 0, Math.PI * 2);
+        ctx.fill();
+    });
+    if (player.hp > 0) {
+        const px = (player.x + MAP_LIMIT) * S;
+        const py = (player.z + MAP_LIMIT) * S;
+        ctx.fillStyle = "#fff";
+        ctx.beginPath();
+        ctx.arc(px, py, 4, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+// ==================== LOJA ====================================
+let activeShopCat = "pistol";
+
+function setupShopInterface() {
+    const tabs = document.querySelectorAll(".shop-tab");
+    tabs.forEach(tab => {
+        tab.onclick = () => {
+            tabs.forEach(t => t.classList.remove("active"));
+            tab.classList.add("active");
+            activeShopCat = tab.dataset.cat;
+            renderShopGrid(activeShopCat);
+        };
+    });
+    renderShopGrid(activeShopCat);
+}
+
+function renderShopGrid(cat) {
+    const grid = document.getElementById("shop-grid");
+    if (!grid) return;
+    grid.innerHTML = "";
+    Object.entries(WEAPON_SHOP).forEach(([name, w]) => {
+        if (w.category !== cat || name === "Faca") return;
+        const targetSlot = SLOT_CATS[w.category] || 1;
+        const isEquipped = inventory[targetSlot] === name;
+        const cantAfford = credits < w.cost && !isEquipped;
+        const card = document.createElement("div");
+        card.className = "shop-card" + (isEquipped ? " equipped" : "") + (cantAfford ? " cant-afford" : "");
+        card.innerHTML = `
+            <div class="sc-name">${name}</div>
+            <div class="sc-cost">$${w.cost}</div>
+            <div class="sc-stats">${t('dmg')} ${w.damage} · ${t('cd')} ${w.fireRate}ms · ${t('mag')} ${w.magSize}</div>
+        `;
+        if (!cantAfford) {
+            card.onclick = () => {
+                if (isEquipped) return;
+                credits -= w.cost;
+                inventory[targetSlot] = name;
+                ammoSlots[targetSlot].inMag = w.magSize;
+                ammoSlots[targetSlot].reserve = w.reserve;
+                currentSlot = targetSlot;
+                currentWeaponName = name;
+                isReloading = false;
+                isAiming = false;
+                isMouseDown = false;
+                camera.fov = 75;
+                camera.updateProjectionMatrix();
+                updateHUD();
+                updateWeaponVisual();
+                updateSlotsHUD();
+                renderShopGrid(cat);
+            };
+        }
+        grid.appendChild(card);
+    });
+}
+
+// ==================== TROCA DE ARMA E ANIMAÇÕES ===============
+let weaponSwitchAnim = 0;
+let aimTransition = 0;
+
+function switchSlot(n) {
+    if (player.hp <= 0 || isReloading || !inventory[n] || currentSlot === n) return;
+    isAiming = false;
+    camera.fov = 75;
+    camera.updateProjectionMatrix();
+    currentSlot = n;
+    currentWeaponName = inventory[n];
+    isMouseDown = false;
+    animWeaponSwitch();
+    updateHUD();
+    updateSlotsHUD();
+    updateWeaponVisual();
+}
+
+function animWeaponSwitch() { weaponSwitchAnim = 1; }
+
+function updateWeaponAnims(delta) {
+    if (!currentWeaponName) return;
+    const d = WEAPON_SHOP[currentWeaponName];
+    const aimTarget = (isAiming && d.hasScope) ? 1 : 0;
+    aimTransition += (aimTarget - aimTransition) * Math.min(1, delta * 20);
+    if (isMoving && !isAiming) {
+        weaponBob += delta * 8;
+        weaponGroup.position.y += Math.sin(weaponBob) * 0.008;
+        weaponGroup.position.x += Math.cos(weaponBob * 0.5) * 0.004;
+    } else {
+        weaponBob *= 0.9;
+    }
+    if (currentRecoil > 0) {
+        currentRecoil -= delta * 6;
+        if (currentRecoil < 0) currentRecoil = 0;
+    }
+    weaponGroup.position.z += currentRecoil;
+    if (weaponSwitchAnim > 0) {
+        weaponGroup.position.y -= weaponSwitchAnim * 0.12;
+        weaponSwitchAnim -= delta * 10;
+        if (weaponSwitchAnim <= 0) {
+            weaponSwitchAnim = 0;
+            resetWeaponPosition();
+        }
+    }
+    let targetPos;
+    if (isAiming && d.hasScope) targetPos = new THREE.Vector3(0, -0.12, -0.30);
+    else if (d.type === "melee") targetPos = new THREE.Vector3(0.20, -0.32, -0.35);
+    else targetPos = new THREE.Vector3(0.28, -0.24, -0.55);
+    weaponGroup.position.lerp(targetPos, Math.min(1, delta * 18));
+    weaponGroup.rotation.set(0, 0, 0);
+}
+
+// ==================== RESET DE RODADA =========================
+function resetRound() {
+    bullets.forEach(b => { scene.remove(b.mesh); if (b.trail) scene.remove(b.trail); });
+    bullets = [];
+    allies.forEach(a => scene.remove(a.model));
+    enemies.forEach(e => scene.remove(e.model));
+    allies = [];
+    enemies = [];
+
+    generateRandomMap();
+    roundNumber++;
+
+    player.x = 0;
+    player.z = 62;
+    player.hp = 100;
+    camera.position.set(player.x, 1.9, player.z);
+    targetYaw = 0;
+    targetPitch = 0;
+    camera.rotation.order = "YXZ";
+    camera.rotation.set(0, 0, 0);
+    isReloading = false;
+    isAiming = false;
+    isMouseDown = false;
+    isDashing = false;
+    dashCharges = maxDashCharges;
+    dashCooldown = 0;
+    camera.fov = 75;
+    camera.updateProjectionMatrix();
+
+    for (let slot in inventory) {
+        if (inventory[slot]) {
+            const w = WEAPON_SHOP[inventory[slot]];
+            ammoSlots[slot].inMag = w.magSize;
+            ammoSlots[slot].reserve = w.reserve;
+        }
+    }
+    currentSlot = 2;
+    currentWeaponName = inventory[2] || "Faca";
+    if (!inventory[2]) { currentSlot = 3; currentWeaponName = "Faca"; }
+    updateHUD();
+    updateWeaponVisual();
+    updateSlotsHUD();
+    updateDashHUD();
+
+    const allyCount = 2 + Math.min(roundNumber - 1, 2);
+    const enemyCount = 3 + Math.min(roundNumber - 1, 4);
+    for (let i = 0; i < allyCount; i++) {
+        spawnBot('ally', (Math.random() - 0.5) * 30, 55 - Math.random() * 10);
+    }
+    for (let i = 0; i < enemyCount; i++) {
+        const angle = (i / enemyCount) * Math.PI * 2;
+        spawnBot('enemy', Math.cos(angle) * (25 + Math.random() * 20), -55 + Math.random() * 15);
+    }
+    setupShopInterface();
+    drawMinimap();
+}
+
+function handleRoundEnd(victory) {
+    document.exitPointerLock();
+    document.getElementById('blocker').style.display = 'flex';
+    if (victory) {
+        teamScore++;
+        credits += 1900;
+        document.getElementById('match-title').textContent = t('victory');
+    } else {
+        enemyScore++;
+        credits += 1400;
+        inventory[1] = null;
+        inventory[2] = "Classic";
+        document.getElementById('match-title').textContent = t('defeat');
+    }
+    if (credits > 9000) credits = 9000;
+    document.getElementById("team-score").textContent = teamScore;
+    document.getElementById("enemy-score").textContent = enemyScore;
+    resetRound();
+}
+
+// ==================== CONTROLES ===============================
+const keys = {};
+
+window.addEventListener('keydown', e => {
+    const key = e.key.toLowerCase();
+    keys[key] = true;
+    if (key === '1') switchSlot(1);
+    if (key === '2') switchSlot(2);
+    if (key === '3') switchSlot(3);
+    if (key === 'r') reloadWeapon();
+    if (key === 'escape') document.exitPointerLock();
+    if (key === 'shift') performDash();
 });
+
+window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
 
 document.addEventListener('mousemove', e => {
     if (document.pointerLockElement !== document.body) return;
-    const d = currentWeaponName ? WEAPON_SHOP[currentWeaponName] : null;
-    const sens = (isAiming && d && d.hasScope) ? 0.0010 : 0.0022;
-    targetYaw   -= e.movementX * sens;
+    const sens = isAiming ? 0.0008 : 0.002;
+    targetYaw -= e.movementX * sens;
     targetPitch -= e.movementY * sens;
-    targetPitch = Math.max(-Math.PI/2.2, Math.min(Math.PI/2.2, targetPitch));
+    targetPitch = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, targetPitch));
 });
 
 window.addEventListener('mousedown', e => {
@@ -1329,8 +1159,6 @@ window.addEventListener('mousedown', e => {
             isAiming = !isAiming;
             camera.fov = isAiming ? d.zoomFov : 75;
             camera.updateProjectionMatrix();
-            const ch = document.getElementById("crosshair");
-            if (isAiming) ch.classList.add("aiming"); else ch.classList.remove("aiming");
             updateHUD();
         }
     }
@@ -1338,289 +1166,192 @@ window.addEventListener('mousedown', e => {
 
 window.addEventListener('mouseup', e => { if (e.button === 0) isMouseDown = false; });
 
-const keys = {};
-window.addEventListener('keydown', e => {
-    keys[e.key.toLowerCase()] = true;
-    if (e.key === "1") switchSlot(1);
-    if (e.key === "2") switchSlot(2);
-    if (e.key === "3") switchSlot(3);
-    if (e.key.toLowerCase() === 'r') reloadWeapon();
-    if (e.key === 'q' && inventory[1]) switchSlot(currentSlot === 1 ? 2 : 1);
-    if (e.key === 'Escape') document.exitPointerLock();
+document.getElementById('start-button').addEventListener('click', () => {
+    sound.resume();
+    document.body.requestPointerLock();
 });
-window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
 
-// Scroll para trocar slot
+document.addEventListener('pointerlockchange', () => {
+    const blocker = document.getElementById('blocker');
+    if (document.pointerLockElement !== document.body) {
+        if (blocker) blocker.style.display = 'flex';
+        setupShopInterface();
+    } else {
+        if (blocker) blocker.style.display = 'none';
+    }
+});
+
 window.addEventListener('wheel', e => {
     if (document.pointerLockElement !== document.body) return;
-    if (e.deltaY > 0) {
-        const order = [1,2,3];
-        const ci    = order.indexOf(currentSlot);
-        for (let k = 1; k <= 3; k++) {
-            const next = order[(ci + k) % 3];
-            if (inventory[next]) { switchSlot(next); break; }
-        }
-    } else {
-        const order = [3,2,1];
-        const ci    = order.indexOf(currentSlot);
-        for (let k = 1; k <= 3; k++) {
-            const next = order[(ci + k) % 3];
-            if (inventory[next]) { switchSlot(next); break; }
+    const order = e.deltaY > 0 ? [1, 2, 3] : [3, 2, 1];
+    const currentIndex = order.indexOf(currentSlot);
+    for (let k = 1; k <= 3; k++) {
+        const next = order[(currentIndex + k) % 3];
+        if (inventory[next]) {
+            switchSlot(next);
+            break;
         }
     }
 });
 
-// ─── GAME LOOP ───────────────────────────────────────────────
+// Idioma buttons
+document.getElementById('lang-pt').addEventListener('click', () => setLanguage('pt'));
+document.getElementById('lang-en').addEventListener('click', () => setLanguage('en'));
+document.getElementById('lang-es').addEventListener('click', () => setLanguage('es'));
+
+// ==================== GAME LOOP ===============================
 let lastTime = 0;
 
-function gameLoop(timestamp) {
+function gameLoop(now) {
     requestAnimationFrame(gameLoop);
-
-    const delta = Math.min((timestamp - lastTime) / 1000, 0.05);
-    lastTime = timestamp;
-
-    // Luzes pulsantes decorativas
-    const t = timestamp * 0.001;
-    dynamicLights.forEach((l, i) => {
-        l.intensity = 0.3 + Math.sin(t + i * 1.5) * 0.2;
-    });
+    const delta = Math.min((now - lastTime) / 1000, 0.05);
+    lastTime = now;
 
     if (document.pointerLockElement === document.body) {
-
-        // ── CÂMERA SUAVE ──────────────────────────────────────
-        const camSmooth = 0.2;
-        smoothYaw   += (targetYaw   - smoothYaw)   * camSmooth * 60 * delta;
-        smoothPitch += (targetPitch - smoothPitch)  * camSmooth * 60 * delta;
+        smoothYaw += (targetYaw - smoothYaw) * 0.25 * 60 * delta;
+        smoothPitch += (targetPitch - smoothPitch) * 0.25 * 60 * delta;
         camera.rotation.order = "YXZ";
         camera.rotation.set(smoothPitch, smoothYaw, 0);
 
         if (player.hp > 0) {
-
-            // ── MOVIMENTAÇÃO SUAVE ────────────────────────────
-            let mX = 0, mZ = 0;
-            const d = currentWeaponName ? WEAPON_SHOP[currentWeaponName] : null;
-            const baseSpeed = (d && d.type === "melee") ? player.speed * 1.3 : player.speed;
-            const spd       = isAiming ? baseSpeed * 0.55 : baseSpeed;
-            const yaw       = smoothYaw;
-
-            if (keys['w']) { mX -= Math.sin(yaw); mZ -= Math.cos(yaw); }
-            if (keys['s']) { mX += Math.sin(yaw); mZ += Math.cos(yaw); }
-            if (keys['a']) { mX -= Math.cos(yaw); mZ += Math.sin(yaw); }
-            if (keys['d']) { mX += Math.cos(yaw); mZ -= Math.sin(yaw); }
-
-            const len = Math.hypot(mX, mZ);
+            let mx = 0, mz = 0;
+            const spd = isAiming ? player.speed * 0.5 : player.speed;
+            if (keys['w']) { mx -= Math.sin(smoothYaw); mz -= Math.cos(smoothYaw); }
+            if (keys['s']) { mx += Math.sin(smoothYaw); mz += Math.cos(smoothYaw); }
+            if (keys['a']) { mx -= Math.cos(smoothYaw); mz += Math.sin(smoothYaw); }
+            if (keys['d']) { mx += Math.cos(smoothYaw); mz -= Math.sin(smoothYaw); }
+            const len = Math.hypot(mx, mz);
             isMoving = len > 0;
-
             if (isMoving) {
-                mX = (mX / len) * spd;
-                mZ = (mZ / len) * spd;
-                if (!checkCollision(player.x + mX, player.z))   player.x += mX;
-                if (!checkCollision(player.x, player.z + mZ))   player.z += mZ;
+                mx = mx / len * spd;
+                mz = mz / len * spd;
+                if (!checkCollision(player.x + mx + dashVelocity.x, player.z)) player.x += mx + dashVelocity.x;
+                if (!checkCollision(player.x, player.z + mz + dashVelocity.z)) player.z += mz + dashVelocity.z;
             }
-
-            // Suaviza a câmera ao andar (head bob)
-            const targetY = 1.9 + (isMoving ? Math.sin(weaponBob * 2) * 0.012 : 0);
+            if (isDashing) {
+                if (!checkCollision(player.x + dashVelocity.x, player.z)) player.x += dashVelocity.x;
+                if (!checkCollision(player.x, player.z + dashVelocity.z)) player.z += dashVelocity.z;
+            }
+            updateDashCooldown(delta);
             camera.position.x = player.x;
             camera.position.z = player.z;
-            camera.position.y += (targetY - camera.position.y) * Math.min(1, delta * 12);
-
-            // ── DISPARO AUTOMÁTICO ────────────────────────────
-            if (isMouseDown && d && d.isAutomatic) shootCurrentWeapon();
-
+            camera.position.y += (1.9 + (isMoving ? Math.sin(weaponBob * 2) * 0.01 : 0) - camera.position.y) * Math.min(1, delta * 15);
+            if (isMouseDown && WEAPON_SHOP[currentWeaponName]?.isAutomatic) shootCurrentWeapon();
         } else {
-            // Modo espectador
-            const s = 0.12;
-            if (keys['w']) { camera.position.x -= Math.sin(smoothYaw) * s; camera.position.z -= Math.cos(smoothYaw) * s; }
-            if (keys['s']) { camera.position.x += Math.sin(smoothYaw) * s; camera.position.z += Math.cos(smoothYaw) * s; }
+            const speed = 0.1;
+            if (keys['w']) { camera.position.x -= Math.sin(smoothYaw) * speed; camera.position.z -= Math.cos(smoothYaw) * speed; }
+            if (keys['s']) { camera.position.x += Math.sin(smoothYaw) * speed; camera.position.z += Math.cos(smoothYaw) * speed; }
         }
 
-        // ── ANIMAÇÕES DA ARMA ─────────────────────────────────
+        updateCrosshair();
         updateWeaponAnims(delta);
+        updateDyingBots(delta);
 
-        // ── BALAS ─────────────────────────────────────────────
+        // Atualiza balas
         for (let i = bullets.length - 1; i >= 0; i--) {
-            const b   = bullets[i];
-            const spd = b.velocity;
-
-            b.mesh.position.addScaledVector(b.dir, spd);
+            const b = bullets[i];
+            b.mesh.position.addScaledVector(b.dir, b.velocity);
             b.life--;
-
-            // Atualiza trail
-            if (b.trail) {
-                const pts = [
-                    b.mesh.position.clone(),
-                    b.mesh.position.clone().addScaledVector(b.dir, -spd * 4)
-                ];
-                b.trail.geometry.setFromPoints(pts);
-            }
-
-            const bp  = b.mesh.position;
-            let hit   = checkCollision(bp.x, bp.z, 0.15);
-
-            if (!hit) {
-                if (b.owner === 'player') {
-                    for (let j = enemies.length - 1; j >= 0; j--) {
-                        const en = enemies[j];
-                        if (Math.hypot(bp.x - en.x, bp.z - en.z) < 1.2 &&
-                            Math.abs(bp.y - 1.4) < 1.6) {
-                            en.hp -= b.damage;
-                            hit = true;
-                            flashHitMarker();
-                            if (en.hp <= 0) {
-                                addKillFeed(`🎯 ${currentWeaponName} → Inimigo eliminado`);
-                                removeBot(en, enemies, j);
-                                credits += 300;
-                                updateHUD();
-                            }
-                            break;
-                        }
-                    }
-                } else if (b.owner === 'ally') {
-                    for (let j = enemies.length - 1; j >= 0; j--) {
-                        const en = enemies[j];
-                        if (Math.hypot(bp.x - en.x, bp.z - en.z) < 1.2 &&
-                            Math.abs(bp.y - 1.4) < 1.6) {
-                            en.hp -= b.damage * 0.7;
-                            hit = true;
-                            if (en.hp <= 0) {
-                                addKillFeed(`🤝 Aliado → Inimigo eliminado`);
-                                removeBot(en, enemies, j);
-                                credits += 100;
-                                updateHUD();
-                            }
-                            break;
-                        }
-                    }
-                } else if (b.owner === 'enemy') {
-                    // Vs aliados
-                    let hitAlly = false;
-                    for (let j = allies.length - 1; j >= 0; j--) {
-                        const al = allies[j];
-                        if (Math.hypot(bp.x - al.x, bp.z - al.z) < 1.1 &&
-                            Math.abs(bp.y - 1.4) < 1.6) {
-                            al.hp -= b.damage * 0.6;
-                            hit = true; hitAlly = true;
-                            if (al.hp <= 0) {
-                                addKillFeed(`💀 Aliado eliminado`);
-                                removeBot(al, allies, j);
-                            }
-                            break;
-                        }
-                    }
-                    // Vs player
-                    if (!hitAlly && player.hp > 0) {
-                        if (Math.hypot(bp.x - player.x, bp.z - player.z) < 1.0 &&
-                            Math.abs(bp.y - camera.position.y) < 1.5) {
-                            const dmg = b.damage * 0.65;
-                            player.hp -= dmg;
-                            hit = true;
-                            flashDamage();
+            const bp = b.mesh.position;
+            let hit = checkCollision(bp.x, bp.z, 0.2);
+            if (!hit && b.owner === 'player') {
+                for (let j = enemies.length - 1; j >= 0; j--) {
+                    const en = enemies[j];
+                    if (Math.hypot(bp.x - en.x, bp.z - en.z) < 1.2 && Math.abs(bp.y - 1.4) < 1.8) {
+                        en.hp -= b.damage;
+                        hit = true;
+                        flashHitMarker();
+                        sound.hit();
+                        if (en.hp <= 0) {
+                            sound.kill();
+                            addKillFeed(`🎯 ${currentWeaponName} ${t('killed_enemy')}`);
+                            removeBot(en, enemies, j);
+                            credits += 300;
                             updateHUD();
-                            if (player.hp <= 0) {
-                                updateWeaponVisual();
-                                addKillFeed(`💀 Você foi eliminado`);
-                            }
                         }
+                        break;
+                    }
+                }
+            } else if (!hit && b.owner === 'enemy' && player.hp > 0) {
+                if (Math.hypot(bp.x - player.x, bp.z - player.z) < 1.0 && Math.abs(bp.y - 1.8) < 1.5) {
+                    player.hp -= b.damage * 0.6;
+                    hit = true;
+                    flashDamage();
+                    sound.hit();
+                    updateHUD();
+                    if (player.hp <= 0) {
+                        updateWeaponVisual();
+                        sound.kill();
+                        addKillFeed(t('you_died'));
                     }
                 }
             }
-
             if (hit || b.life <= 0) {
                 scene.remove(b.mesh);
-                if (b.trail) scene.remove(b.trail);
                 bullets.splice(i, 1);
             }
         }
 
-        // ── IA ────────────────────────────────────────────────
-        allies.forEach(a  => runBotAI(a,  delta));
-        enemies.forEach(e => runBotAI(e,  delta));
+        allies.forEach(a => runBotAI(a, delta));
+        enemies.forEach(e => runBotAI(e, delta));
 
-        // ── FIM DE ROUND ──────────────────────────────────────
-        if (enemies.length === 0) {
-            handleRoundEnd(true);
-            return;
-        }
-        if (player.hp <= 0 && allies.length === 0) {
-            handleRoundEnd(false);
+        if (enemies.length === 0 || (player.hp <= 0 && allies.length === 0)) {
+            handleRoundEnd(enemies.length === 0);
             return;
         }
 
-        // ── MINIMAP ───────────────────────────────────────────
         drawMinimap();
     }
 
     renderer.render(scene, camera);
 }
 
-// ─── FIM DE RODADA ───────────────────────────────────────────
-function handleRoundEnd(isVictory) {
-    document.exitPointerLock();
-    blocker.style.display = 'flex';
-
-    if (isVictory) {
-        teamScore++;
-        credits += 1900;
-        document.getElementById('match-title').textContent = "✅ VITÓRIA! +$1900";
-    } else {
-        enemyScore++;
-        credits += 1400;
-        inventory[1] = null;
-        inventory[2] = "Classic";
-        document.getElementById('match-title').textContent = "❌ DERROTA. Equipamento perdido. +$1400";
-    }
-
-    if (credits > 9000) credits = 9000;
-    document.getElementById("team-score").textContent  = teamScore;
-    document.getElementById("enemy-score").textContent = enemyScore;
-
-    resetRound();
-}
-
-// ─── PARTÍCULAS DO FUNDO (menu) ───────────────────────────────
+// ==================== PARTÍCULAS DE FUNDO (MENU) ==============
 (function initBgCanvas() {
-    const c   = document.getElementById("bg-canvas");
-    const ctx = c.getContext("2d");
-    c.width   = window.innerWidth;
-    c.height  = window.innerHeight;
-
-    const particles = Array.from({ length: 80 }, () => ({
-        x: Math.random() * c.width,
-        y: Math.random() * c.height,
+    const canvas = document.getElementById("bg-canvas");
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    const particles = Array.from({ length: 60 }, () => ({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
         r: Math.random() * 1.5 + 0.3,
-        vx: (Math.random() - 0.5) * 0.3,
-        vy: (Math.random() - 0.5) * 0.3,
-        a: Math.random()
+        vx: (Math.random() - 0.5) * 0.2,
+        vy: (Math.random() - 0.5) * 0.2
     }));
-
-    function tick() {
-        ctx.clearRect(0, 0, c.width, c.height);
+    function animateBg() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
         particles.forEach(p => {
-            p.x += p.vx; p.y += p.vy;
-            if (p.x < 0) p.x = c.width;
-            if (p.x > c.width)  p.x = 0;
-            if (p.y < 0) p.y = c.height;
-            if (p.y > c.height) p.y = 0;
+            p.x += p.vx;
+            p.y += p.vy;
+            if (p.x < 0) p.x = canvas.width;
+            if (p.x > canvas.width) p.x = 0;
+            if (p.y < 0) p.y = canvas.height;
+            if (p.y > canvas.height) p.y = 0;
             ctx.beginPath();
             ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(0,255,204,${0.15 + Math.sin(Date.now()*0.001 + p.a)*0.1})`;
+            ctx.fillStyle = `rgba(0,240,255,${0.1 + Math.sin(Date.now() * 0.001 + p.r) * 0.05})`;
             ctx.fill();
         });
-        requestAnimationFrame(tick);
+        requestAnimationFrame(animateBg);
     }
-    tick();
+    animateBg();
 })();
 
-// ─── RESIZE ──────────────────────────────────────────────────
+// ==================== RESIZE ==================================
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
-    const bc = document.getElementById("bg-canvas");
-    bc.width  = window.innerWidth;
-    bc.height = window.innerHeight;
+    const bgCanvas = document.getElementById("bg-canvas");
+    if (bgCanvas) {
+        bgCanvas.width = window.innerWidth;
+        bgCanvas.height = window.innerHeight;
+    }
 });
 
-// ─── INICIALIZAÇÃO ───────────────────────────────────────────
+// ==================== INICIALIZAÇÃO ===========================
 resetRound();
+updateDashHUD();
 requestAnimationFrame(gameLoop);

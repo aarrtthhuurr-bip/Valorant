@@ -34,6 +34,7 @@
             </div>
 
             <p id="blocker-desc">SELECIONE SEU ARMAMENTO ANTES DE ENTRAR NO COMBATE.</p>
+            <div id="buy-phase-status">20s</div>
 
             <!-- Seletor de idioma -->
             <div id="language-selector">
@@ -132,7 +133,19 @@
     </div>
 
     <!-- Retículo -->
-    <div id="crosshair"></div>
+    <div id="crosshair">
+        <span class="ch-line ch-top"></span>
+        <span class="ch-line ch-right"></span>
+        <span class="ch-line ch-bottom"></span>
+        <span class="ch-line ch-left"></span>
+        <span class="ch-dot"></span>
+    </div>
+
+    <div id="scope-overlay">
+        <div class="scope-v"></div>
+        <div class="scope-h"></div>
+        <div class="scope-ring"></div>
+    </div>
 
     <!-- Hit marker -->
     <div id="hit-marker"></div>

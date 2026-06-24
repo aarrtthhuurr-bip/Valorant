@@ -48,7 +48,17 @@ const LANGUAGES = {
         shop_lmg: "LMG",
         dmg: "DMG",
         cd: "CD",
-        mag: "Pente"
+        mag: "Pente",
+        primary_empty: "PRIMARIA",
+        buy_timer: "COMPRA",
+        buy_closed: "LOJA FECHADA",
+        admin_on: "ADMIN ATIVO: CREDITOS $16000",
+        admin_off: "ADMIN DESATIVADO",
+        ammo_pickup: "+ MUNICAO",
+        medkit_pickup: "+ VIDA",
+        match_victory: "PARTIDA VENCIDA",
+        match_defeat: "PARTIDA PERDIDA",
+        restart_match: "REINICIAR PARTIDA"
     },
     en: {
         title: "TACTIC FPS",
@@ -86,7 +96,17 @@ const LANGUAGES = {
         shop_lmg: "LMG",
         dmg: "DMG",
         cd: "ROF",
-        mag: "Mag"
+        mag: "Mag",
+        primary_empty: "PRIMARY",
+        buy_timer: "BUY",
+        buy_closed: "SHOP CLOSED",
+        admin_on: "ADMIN ON: CREDITS $16000",
+        admin_off: "ADMIN OFF",
+        ammo_pickup: "+ AMMO",
+        medkit_pickup: "+ HEALTH",
+        match_victory: "MATCH WON",
+        match_defeat: "MATCH LOST",
+        restart_match: "RESTART MATCH"
     },
     es: {
         title: "TACTIC FPS",
@@ -124,7 +144,17 @@ const LANGUAGES = {
         shop_lmg: "AMETRALLADORAS",
         dmg: "DAÑO",
         cd: "CADENCIA",
-        mag: "Cargador"
+        mag: "Cargador",
+        primary_empty: "PRIMARIA",
+        buy_timer: "COMPRA",
+        buy_closed: "TIENDA CERRADA",
+        admin_on: "ADMIN ACTIVO: CREDITOS $16000",
+        admin_off: "ADMIN DESACTIVADO",
+        ammo_pickup: "+ MUNICION",
+        medkit_pickup: "+ VIDA",
+        match_victory: "PARTIDA GANADA",
+        match_defeat: "PARTIDA PERDIDA",
+        restart_match: "REINICIAR PARTIDA"
     }
 };
 
@@ -151,6 +181,8 @@ function updateAllUITexts() {
     document.getElementById("match-title").textContent = t('buy_phase');
     document.getElementById("blocker-desc").textContent = t('select_weapon');
     document.getElementById("start-button").textContent = t('enter_match');
+    const buyStatus = document.getElementById("buy-phase-status");
+    if (buyStatus && roundState === 'buy') buyStatus.textContent = `${t('buy_timer')} ${formatTimer((buyPhaseEndsAt - performance.now()) / 1000)}`;
     document.querySelector("#hud-left .hud-team").textContent = t('your_team');
     document.querySelector("#hud-right .hud-team").textContent = t('enemies');
     document.querySelector("#hud-center .vs-text").textContent = t('vs');
@@ -194,6 +226,15 @@ let enemyScore = 0;
 let credits = 800;
 let roundNumber = 0;
 const MAP_LIMIT = 78;
+const BASE_FOV = 75;
+const BUY_PHASE_DURATION = 20;
+const MATCH_POINT = 5;
+const MAX_CREDITS = 16000;
+let isBuyPhase = true;
+let buyPhaseEndsAt = 0;
+let roundState = 'buy';
+let roundEndLocked = false;
+let isAdminMode = false;
 
 // ==================== ARSENAL ================================
 const WEAPON_SHOP = {
@@ -263,18 +304,28 @@ document.getElementById('canvas-container').appendChild(renderer.domElement);
 document.addEventListener('contextmenu', e => e.preventDefault());
 
 // Iluminação
-const ambientLight = new THREE.AmbientLight(0x1a2535, 1.2);
+const ambientLight = new THREE.AmbientLight(0x6f87a8, 2.1);
 scene.add(ambientLight);
 
-const sunLight = new THREE.DirectionalLight(0xaaccff, 0.7);
+const sunLight = new THREE.DirectionalLight(0xd8eeff, 1.15);
 sunLight.position.set(40, 80, 40);
 sunLight.castShadow = true;
 sunLight.shadow.mapSize.set(2048, 2048);
 scene.add(sunLight);
 
-const fillLight = new THREE.DirectionalLight(0xff6644, 0.25);
+const fillLight = new THREE.DirectionalLight(0xffd0aa, 0.55);
 fillLight.position.set(-40, 20, -40);
 scene.add(fillLight);
+
+const arenaLights = [
+    new THREE.PointLight(0x00ffcc, 0.7, 70),
+    new THREE.PointLight(0xff4655, 0.55, 70),
+    new THREE.PointLight(0xffffff, 0.45, 55)
+];
+arenaLights[0].position.set(-35, 10, 25);
+arenaLights[1].position.set(35, 10, -25);
+arenaLights[2].position.set(0, 12, 0);
+arenaLights.forEach(light => scene.add(light));
 
 // Grupo da arma (acoplado à câmera)
 const weaponGroup = new THREE.Group();
@@ -412,6 +463,123 @@ function hasLineOfSight(x1, z1, x2, z2) {
     return true;
 }
 
+function formatTimer(seconds) {
+    const safe = Math.max(0, Math.ceil(seconds));
+    return `${String(Math.floor(safe / 60)).padStart(2, '0')}:${String(safe % 60).padStart(2, '0')}`;
+}
+
+function getPrimarySlotLabel() {
+    return inventory[1] || t('primary_empty');
+}
+
+function setCredits(value) {
+    credits = isAdminMode ? MAX_CREDITS : Math.min(MAX_CREDITS, Math.max(0, value));
+}
+
+function applyAimState(active) {
+    const d = currentWeaponName ? WEAPON_SHOP[currentWeaponName] : null;
+    isAiming = !!(active && d && d.hasScope && !isReloading && player.hp > 0 && roundState === 'live');
+    camera.fov = isAiming && d ? d.zoomFov : BASE_FOV;
+    camera.updateProjectionMatrix();
+    updateCrosshair();
+}
+
+function updateScopeOverlay() {
+    const d = currentWeaponName ? WEAPON_SHOP[currentWeaponName] : null;
+    const scoped = !!(isAiming && d && d.hasScope && d.category === 'sniper');
+    const overlay = document.getElementById("scope-overlay");
+    if (overlay) overlay.classList.toggle("visible", scoped);
+    const crosshair = document.getElementById("crosshair");
+    if (crosshair) crosshair.classList.toggle("scoped", scoped);
+}
+
+function showBlocker(titleKey, descKey) {
+    const blocker = document.getElementById('blocker');
+    if (blocker) blocker.style.display = 'flex';
+    const title = document.getElementById('match-title');
+    const desc = document.getElementById('blocker-desc');
+    if (title && titleKey) title.textContent = t(titleKey);
+    if (desc && descKey) desc.textContent = t(descKey);
+    setupShopInterface();
+}
+
+function hideBlocker() {
+    const blocker = document.getElementById('blocker');
+    if (blocker) blocker.style.display = 'none';
+}
+
+function clearPickups() {
+    pickups.forEach(p => scene.remove(p.mesh));
+    pickups = [];
+}
+
+function createPickup(type, x, z) {
+    if (checkCollision(x, z, 0.9)) return;
+    const group = new THREE.Group();
+    const isMedkit = type === 'medkit';
+    const bodyMat = new THREE.MeshStandardMaterial({
+        color: isMedkit ? 0xffffff : 0x2b3c4c,
+        emissive: isMedkit ? 0x331111 : 0x003322,
+        emissiveIntensity: 0.35,
+        roughness: 0.45,
+        metalness: isMedkit ? 0.05 : 0.4
+    });
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.28, 0.55), bodyMat);
+    body.castShadow = true;
+    body.position.y = 0.22;
+    group.add(body);
+
+    const stripeMat = new THREE.MeshBasicMaterial({ color: isMedkit ? 0xff4655 : 0x00ffcc });
+    const stripeA = new THREE.Mesh(new THREE.BoxGeometry(isMedkit ? 0.18 : 0.62, 0.02, 0.58), stripeMat);
+    stripeA.position.y = 0.38;
+    group.add(stripeA);
+    if (isMedkit) {
+        const stripeB = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.021, 0.18), stripeMat);
+        stripeB.position.y = 0.385;
+        group.add(stripeB);
+    }
+
+    group.position.set(x, 0, z);
+    scene.add(group);
+    pickups.push({ type, mesh: group, x, z, spin: Math.random() * Math.PI * 2 });
+}
+
+function spawnRoundPickups() {
+    clearPickups();
+    const fixed = [
+        { type: 'medkit', x: -18, z: 18 },
+        { type: 'medkit', x: 18, z: -18 },
+        { type: 'ammo', x: -34, z: -8 },
+        { type: 'ammo', x: 34, z: 8 },
+        { type: 'ammo', x: 0, z: -30 }
+    ];
+    fixed.forEach(p => createPickup(p.type, p.x, p.z));
+}
+
+function collectPickups(delta) {
+    for (let i = pickups.length - 1; i >= 0; i--) {
+        const p = pickups[i];
+        p.spin += delta * 2.5;
+        p.mesh.rotation.y = p.spin;
+        p.mesh.position.y = Math.sin(p.spin * 2) * 0.05;
+        if (Math.hypot(player.x - p.x, player.z - p.z) > 1.35) continue;
+
+        if (p.type === 'medkit') {
+            if (player.hp >= player.maxHp) continue;
+            player.hp = Math.min(player.maxHp, player.hp + 35);
+            addKillFeed(t('medkit_pickup'));
+        } else {
+            const d = currentWeaponName ? WEAPON_SHOP[currentWeaponName] : null;
+            if (!d || d.type === 'melee') continue;
+            ammoSlots[currentSlot].reserve += Math.max(d.magSize, Math.ceil(d.magSize * 1.5));
+            addKillFeed(t('ammo_pickup'));
+        }
+        scene.remove(p.mesh);
+        pickups.splice(i, 1);
+        updateHUD();
+    }
+}
+
 // ==================== ARMA 3D =================================
 function buildWeaponMesh(name) {
     const group = new THREE.Group();
@@ -504,6 +672,7 @@ camera.position.set(player.x, 1.9, player.z);
 let allies = [];
 let enemies = [];
 let bullets = [];
+let pickups = [];
 
 const BOT_WEAPON_SETS = [
     ["Classic", "Ghost"],
@@ -539,6 +708,9 @@ function spawnBot(type, x, z) {
 }
 
 function removeBot(bot, list, idx) {
+    if (bot.type === 'enemy' && Math.random() < 0.65) {
+        createPickup('ammo', bot.x, bot.z);
+    }
     bot.alive = false;
     bot.dying = true;
     bot.deathTimer = 1.0;
@@ -597,7 +769,7 @@ function shootCurrentWeapon() {
                 if (en.hp <= 0) {
                     sound.kill();
                     removeBot(en, enemies, j);
-                    credits += 300;
+                    setCredits(credits + 300);
                     updateHUD();
                 }
                 break;
@@ -650,10 +822,8 @@ function reloadWeapon() {
     const ammo = ammoSlots[currentSlot];
     if (isReloading || ammo.inMag === d.magSize || ammo.reserve <= 0) return;
     isReloading = true;
-    isAiming = false;
+    applyAimState(false);
     isMouseDown = false;
-    camera.fov = 75;
-    camera.updateProjectionMatrix();
     sound.reload();
 
     const barWrap = document.getElementById("reload-bar-wrap");
@@ -802,9 +972,10 @@ function runBotAI(bot, delta) {
     const now = Date.now();
     if (now - bot.lastShot > weaponData.fireRate * (isEnemy ? 1.5 : 2.2) && los) {
         const accuracy = isEnemy ? 0.05 : 0.08;
+        const verticalAim = ((1.55 - 1.6) / Math.max(dist, 0.001)) + (Math.random() - 0.5) * accuracy * 0.25;
         const shotDir = new THREE.Vector3(
             dx / dist + (Math.random() - 0.5) * accuracy,
-            0.1 + (Math.random() - 0.5) * accuracy,
+            verticalAim,
             dz / dist + (Math.random() - 0.5) * accuracy
         ).normalize();
         const spawnPos = new THREE.Vector3(bot.x, 1.6, bot.z);
@@ -815,6 +986,7 @@ function runBotAI(bot, delta) {
 
 // ==================== HUD E UI ================================
 function updateHUD() {
+    if (isAdminMode) setCredits(MAX_CREDITS);
     document.getElementById("hp").textContent = Math.max(0, Math.ceil(player.hp));
     const hpPct = Math.max(0, (player.hp / player.maxHp) * 100);
     const hpBar = document.getElementById("hp-bar");
@@ -859,9 +1031,9 @@ function updateSlotsHUD() {
         const slotEl = document.getElementById(`slot-${i}`);
         const nameEl = document.getElementById(`sn${i}`);
         if (slotEl) slotEl.classList.toggle("active", currentSlot === i);
-        if (nameEl) nameEl.textContent = inventory[i] || "—";
+        if (nameEl) nameEl.textContent = inventory[i] || (i === 1 ? t('primary_empty') : "—");
     });
-    document.getElementById("ld-slot1").textContent = `${t('slot')} 1: ${inventory[1] || "—"}`;
+    document.getElementById("ld-slot1").textContent = `${t('slot')} 1: ${getPrimarySlotLabel()}`;
     document.getElementById("ld-slot2").textContent = `${t('slot')} 2: ${inventory[2] || "Classic"}`;
 }
 
@@ -900,6 +1072,7 @@ function updateCrosshair() {
         ch.classList.toggle("moving", isMoving && !isAiming);
         ch.classList.toggle("aiming", isAiming);
     }
+    updateScopeOverlay();
 }
 
 function drawMinimap() {
@@ -971,18 +1144,17 @@ function renderShopGrid(cat) {
         `;
         if (!cantAfford) {
             card.onclick = () => {
+                if (!isBuyPhase || roundState !== 'buy') return;
                 if (isEquipped) return;
-                credits -= w.cost;
+                if (!isAdminMode) setCredits(credits - w.cost);
                 inventory[targetSlot] = name;
                 ammoSlots[targetSlot].inMag = w.magSize;
                 ammoSlots[targetSlot].reserve = w.reserve;
                 currentSlot = targetSlot;
                 currentWeaponName = name;
                 isReloading = false;
-                isAiming = false;
+                applyAimState(false);
                 isMouseDown = false;
-                camera.fov = 75;
-                camera.updateProjectionMatrix();
                 updateHUD();
                 updateWeaponVisual();
                 updateSlotsHUD();
@@ -999,9 +1171,7 @@ let aimTransition = 0;
 
 function switchSlot(n) {
     if (player.hp <= 0 || isReloading || !inventory[n] || currentSlot === n) return;
-    isAiming = false;
-    camera.fov = 75;
-    camera.updateProjectionMatrix();
+    applyAimState(false);
     currentSlot = n;
     currentWeaponName = inventory[n];
     isMouseDown = false;
@@ -1047,15 +1217,60 @@ function updateWeaponAnims(delta) {
 }
 
 // ==================== RESET DE RODADA =========================
-function resetRound() {
+function clearCombatEntities() {
     bullets.forEach(b => { scene.remove(b.mesh); if (b.trail) scene.remove(b.trail); });
     bullets = [];
-    allies.forEach(a => scene.remove(a.model));
-    enemies.forEach(e => scene.remove(e.model));
+    allies.forEach(a => { if (a.coverPos) a.coverPos.occupied = false; scene.remove(a.model); });
+    enemies.forEach(e => { if (e.coverPos) e.coverPos.occupied = false; scene.remove(e.model); });
     allies = [];
     enemies = [];
+    clearPickups();
+}
+
+function activeEnemyCount() {
+    return enemies.filter(e => e.alive && !e.dying).length;
+}
+
+function updateRoundTimer(now = performance.now()) {
+    const timer = document.getElementById("round-timer");
+    const status = document.getElementById("buy-phase-status");
+    if (roundState === 'buy') {
+        const remaining = Math.max(0, (buyPhaseEndsAt - now) / 1000);
+        if (timer) timer.textContent = formatTimer(remaining);
+        if (status) status.textContent = `${t('buy_timer')} ${formatTimer(remaining)}`;
+        if (remaining <= 0) beginCombatRound();
+    } else if (roundState === 'live') {
+        if (timer) timer.textContent = t('buy_closed');
+        if (status) status.textContent = "";
+    } else if (roundState === 'matchOver') {
+        if (timer) timer.textContent = "GG";
+        if (status) status.textContent = "";
+    }
+}
+
+function beginBuyPhase() {
+    roundState = 'buy';
+    isBuyPhase = true;
+    roundEndLocked = false;
+    buyPhaseEndsAt = performance.now() + BUY_PHASE_DURATION * 1000;
+    showBlocker('buy_phase', 'select_weapon');
+    document.getElementById("start-button").textContent = t('enter_match');
+    updateRoundTimer();
+}
+
+function beginCombatRound() {
+    if (roundState !== 'buy') return;
+    roundState = 'live';
+    isBuyPhase = false;
+    hideBlocker();
+    updateRoundTimer();
+}
+
+function resetRound() {
+    clearCombatEntities();
 
     generateRandomMap();
+    spawnRoundPickups();
     roundNumber++;
 
     player.x = 0;
@@ -1067,12 +1282,12 @@ function resetRound() {
     camera.rotation.order = "YXZ";
     camera.rotation.set(0, 0, 0);
     isReloading = false;
-    isAiming = false;
+    applyAimState(false);
     isMouseDown = false;
     isDashing = false;
     dashCharges = maxDashCharges;
     dashCooldown = 0;
-    camera.fov = 75;
+    camera.fov = BASE_FOV;
     camera.updateProjectionMatrix();
 
     for (let slot in inventory) {
@@ -1101,23 +1316,59 @@ function resetRound() {
     }
     setupShopInterface();
     drawMinimap();
+    beginBuyPhase();
 }
 
 function handleRoundEnd(victory) {
+    if (roundEndLocked || roundState === 'matchOver') return;
+    roundEndLocked = true;
+    roundState = 'ended';
+    isBuyPhase = false;
+    isMouseDown = false;
+    applyAimState(false);
     document.exitPointerLock();
-    document.getElementById('blocker').style.display = 'flex';
+    clearCombatEntities();
     if (victory) {
         teamScore++;
-        credits += 1900;
+        setCredits(credits + 1900);
+        showBlocker(null, 'select_weapon');
         document.getElementById('match-title').textContent = t('victory');
     } else {
         enemyScore++;
-        credits += 1400;
+        setCredits(credits + 1400);
         inventory[1] = null;
         inventory[2] = "Classic";
+        ammoSlots[2].inMag = WEAPON_SHOP.Classic.magSize;
+        ammoSlots[2].reserve = WEAPON_SHOP.Classic.reserve;
+        showBlocker(null, 'select_weapon');
         document.getElementById('match-title').textContent = t('defeat');
     }
-    if (credits > 9000) credits = 9000;
+    document.getElementById("team-score").textContent = teamScore;
+    document.getElementById("enemy-score").textContent = enemyScore;
+    updateHUD();
+    updateSlotsHUD();
+
+    if (teamScore >= MATCH_POINT || enemyScore >= MATCH_POINT) {
+        roundState = 'matchOver';
+        document.getElementById('match-title').textContent = teamScore >= MATCH_POINT ? t('match_victory') : t('match_defeat');
+        document.getElementById('blocker-desc').textContent = `${teamScore} - ${enemyScore}`;
+        document.getElementById("start-button").textContent = t('restart_match');
+        return;
+    }
+
+    setTimeout(() => {
+        if (roundState === 'ended') resetRound();
+    }, 2200);
+}
+
+function resetMatch() {
+    teamScore = 0;
+    enemyScore = 0;
+    roundNumber = 0;
+    setCredits(800);
+    inventory[1] = null;
+    inventory[2] = "Classic";
+    inventory[3] = "Faca";
     document.getElementById("team-score").textContent = teamScore;
     document.getElementById("enemy-score").textContent = enemyScore;
     resetRound();
@@ -1126,18 +1377,44 @@ function handleRoundEnd(victory) {
 // ==================== CONTROLES ===============================
 const keys = {};
 
+function setMoveKey(e, pressed) {
+    const codeMap = {
+        KeyW: 'w',
+        KeyA: 'a',
+        KeyS: 's',
+        KeyD: 'd',
+        ShiftLeft: 'shift',
+        ShiftRight: 'shift'
+    };
+    const mapped = codeMap[e.code];
+    if (mapped) keys[mapped] = pressed;
+    keys[e.key.toLowerCase()] = pressed;
+}
+
 window.addEventListener('keydown', e => {
     const key = e.key.toLowerCase();
-    keys[key] = true;
+    setMoveKey(e, true);
+    if (e.code === 'F8') {
+        isAdminMode = !isAdminMode;
+        setCredits(isAdminMode ? MAX_CREDITS : credits);
+        addKillFeed(isAdminMode ? t('admin_on') : t('admin_off'));
+        updateHUD();
+        renderShopGrid(activeShopCat);
+        e.preventDefault();
+        return;
+    }
     if (key === '1') switchSlot(1);
     if (key === '2') switchSlot(2);
     if (key === '3') switchSlot(3);
     if (key === 'r') reloadWeapon();
-    if (key === 'escape') document.exitPointerLock();
+    if (key === 'escape') {
+        if (isBuyPhase || roundState !== 'live') document.exitPointerLock();
+        else hideBlocker();
+    }
     if (key === 'shift') performDash();
 });
 
-window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+window.addEventListener('keyup', e => { setMoveKey(e, false); });
 
 document.addEventListener('mousemove', e => {
     if (document.pointerLockElement !== document.body) return;
@@ -1148,25 +1425,29 @@ document.addEventListener('mousemove', e => {
 });
 
 window.addEventListener('mousedown', e => {
-    if (document.pointerLockElement !== document.body || player.hp <= 0) return;
+    if (document.pointerLockElement !== document.body || player.hp <= 0 || roundState !== 'live') return;
     if (e.button === 0) {
         isMouseDown = true;
         const d = currentWeaponName ? WEAPON_SHOP[currentWeaponName] : null;
         if (d && !d.isAutomatic) shootCurrentWeapon();
     } else if (e.button === 2) {
         const d = currentWeaponName ? WEAPON_SHOP[currentWeaponName] : null;
-        if (d && d.hasScope && !isReloading) {
-            isAiming = !isAiming;
-            camera.fov = isAiming ? d.zoomFov : 75;
-            camera.updateProjectionMatrix();
-            updateHUD();
-        }
+        if (d && d.hasScope && !isReloading) applyAimState(true);
     }
 });
 
-window.addEventListener('mouseup', e => { if (e.button === 0) isMouseDown = false; });
+window.addEventListener('mouseup', e => {
+    if (e.button === 0) isMouseDown = false;
+    if (e.button === 2) applyAimState(false);
+});
 
 document.getElementById('start-button').addEventListener('click', () => {
+    if (roundState === 'matchOver') {
+        resetMatch();
+        return;
+    }
+    if (roundState !== 'buy') return;
+    beginCombatRound();
     sound.resume();
     document.body.requestPointerLock();
 });
@@ -1174,10 +1455,22 @@ document.getElementById('start-button').addEventListener('click', () => {
 document.addEventListener('pointerlockchange', () => {
     const blocker = document.getElementById('blocker');
     if (document.pointerLockElement !== document.body) {
-        if (blocker) blocker.style.display = 'flex';
-        setupShopInterface();
+        isMouseDown = false;
+        applyAimState(false);
+        if (isBuyPhase || roundState !== 'live') {
+            if (blocker) blocker.style.display = 'flex';
+            setupShopInterface();
+        } else {
+            hideBlocker();
+        }
     } else {
         if (blocker) blocker.style.display = 'none';
+    }
+});
+
+document.getElementById('canvas-container').addEventListener('click', () => {
+    if (roundState === 'live' && document.pointerLockElement !== document.body) {
+        document.body.requestPointerLock();
     }
 });
 
@@ -1206,8 +1499,9 @@ function gameLoop(now) {
     requestAnimationFrame(gameLoop);
     const delta = Math.min((now - lastTime) / 1000, 0.05);
     lastTime = now;
+    updateRoundTimer(now);
 
-    if (document.pointerLockElement === document.body) {
+    if (document.pointerLockElement === document.body && roundState === 'live') {
         smoothYaw += (targetYaw - smoothYaw) * 0.25 * 60 * delta;
         smoothPitch += (targetPitch - smoothPitch) * 0.25 * 60 * delta;
         camera.rotation.order = "YXZ";
@@ -1216,10 +1510,14 @@ function gameLoop(now) {
         if (player.hp > 0) {
             let mx = 0, mz = 0;
             const spd = isAiming ? player.speed * 0.5 : player.speed;
-            if (keys['w']) { mx -= Math.sin(smoothYaw); mz -= Math.cos(smoothYaw); }
-            if (keys['s']) { mx += Math.sin(smoothYaw); mz += Math.cos(smoothYaw); }
-            if (keys['a']) { mx -= Math.cos(smoothYaw); mz += Math.sin(smoothYaw); }
-            if (keys['d']) { mx += Math.cos(smoothYaw); mz -= Math.sin(smoothYaw); }
+            const forwardX = -Math.sin(smoothYaw);
+            const forwardZ = -Math.cos(smoothYaw);
+            const rightX = Math.cos(smoothYaw);
+            const rightZ = -Math.sin(smoothYaw);
+            if (keys['w']) { mx += forwardX; mz += forwardZ; }
+            if (keys['s']) { mx -= forwardX; mz -= forwardZ; }
+            if (keys['a']) { mx -= rightX; mz -= rightZ; }
+            if (keys['d']) { mx += rightX; mz += rightZ; }
             const len = Math.hypot(mx, mz);
             isMoving = len > 0;
             if (isMoving) {
@@ -1237,6 +1535,7 @@ function gameLoop(now) {
             camera.position.z = player.z;
             camera.position.y += (1.9 + (isMoving ? Math.sin(weaponBob * 2) * 0.01 : 0) - camera.position.y) * Math.min(1, delta * 15);
             if (isMouseDown && WEAPON_SHOP[currentWeaponName]?.isAutomatic) shootCurrentWeapon();
+            collectPickups(delta);
         } else {
             const speed = 0.1;
             if (keys['w']) { camera.position.x -= Math.sin(smoothYaw) * speed; camera.position.z -= Math.cos(smoothYaw) * speed; }
@@ -1266,7 +1565,7 @@ function gameLoop(now) {
                             sound.kill();
                             addKillFeed(`🎯 ${currentWeaponName} ${t('killed_enemy')}`);
                             removeBot(en, enemies, j);
-                            credits += 300;
+                            setCredits(credits + 300);
                             updateHUD();
                         }
                         break;
@@ -1280,9 +1579,12 @@ function gameLoop(now) {
                     sound.hit();
                     updateHUD();
                     if (player.hp <= 0) {
+                        player.hp = 0;
                         updateWeaponVisual();
                         sound.kill();
                         addKillFeed(t('you_died'));
+                        handleRoundEnd(false);
+                        break;
                     }
                 }
             }
@@ -1295,8 +1597,8 @@ function gameLoop(now) {
         allies.forEach(a => runBotAI(a, delta));
         enemies.forEach(e => runBotAI(e, delta));
 
-        if (enemies.length === 0 || (player.hp <= 0 && allies.length === 0)) {
-            handleRoundEnd(enemies.length === 0);
+        if (activeEnemyCount() === 0) {
+            handleRoundEnd(true);
             return;
         }
 

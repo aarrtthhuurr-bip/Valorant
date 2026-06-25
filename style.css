@@ -408,6 +408,11 @@ body, html {
 #crosshair.moving .ch-line {
     opacity: 0.55;
 }
+#crosshair.target .ch-line,
+#crosshair.target .ch-dot {
+    background: rgba(255,70,85,0.96);
+    box-shadow: 0 0 8px rgba(255,70,85,0.7);
+}
 #crosshair.moving .ch-top { transform: translateY(-18px); }
 #crosshair.moving .ch-bottom { transform: translateY(11px); }
 #crosshair.moving .ch-left { transform: translateX(-18px); }

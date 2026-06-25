@@ -227,6 +227,7 @@ let credits = 800;
 let roundNumber = 0;
 const MAP_LIMIT = 78;
 const BASE_FOV = 75;
+const ADS_FOV = 64;
 const BUY_PHASE_DURATION = 20;
 const MATCH_POINT = 5;
 const MAX_CREDITS = 16000;
@@ -257,16 +258,16 @@ const WEAPON_SHOP = {
     "Odin": { category:"lmg", type:"lmg", isAutomatic:true, cost:3200, fireRate:90, damage:40, magSize:100, reserve:200, reloadTime:5000, bSpeed:2.6, spread:0.08, pellets:1, color:0x1a1a1a, width:0.20, length:1.05, hasScope:true, zoomFov:55, desc:"LMG pesada.", autoFire:true, soundType:'lmg' },
     "Faca": { category:"melee", type:"melee", isAutomatic:false, cost:0, fireRate:500, damage:65, magSize:1, reserve:0, reloadTime:0, bSpeed:0, spread:0, pellets:1, color:0xbbbbbb, width:0.04, length:0.36, hasScope:false, zoomFov:75, desc:"Corpo a corpo.", autoFire:false, soundType:'melee' }
 };
-const SLOT_CATS = { pistol:2, smg:1, rifle:1, sniper:1, shotgun:1, lmg:1, melee:3 };
+const SLOT_CATS = { pistol:1, smg:2, rifle:2, sniper:2, shotgun:2, lmg:2, melee:3 };
 
 // ==================== INVENTÁRIO DO JOGADOR ====================
-let inventory = { 1: null, 2: "Classic", 3: "Faca" };
-let currentSlot = 3;
-let currentWeaponName = "Faca";
+let inventory = { 1: "Classic", 2: null, 3: "Faca" };
+let currentSlot = 1;
+let currentWeaponName = "Classic";
 let isMouseDown = false;
 let ammoSlots = {
-    1: { inMag: 0, reserve: 0 },
-    2: { inMag: 12, reserve: 36 },
+    1: { inMag: 12, reserve: 36 },
+    2: { inMag: 0, reserve: 0 },
     3: { inMag: 1, reserve: 0 }
 };
 
@@ -277,6 +278,7 @@ let currentRecoil = 0;
 let weaponBob = 0;
 let isMoving = false;
 let weaponSway = { x: 0, y: 0 };
+let knifeSlashAnim = 0;
 let smoothYaw = 0, smoothPitch = 0, targetYaw = 0, targetPitch = 0;
 
 // ==================== DASH ====================================
@@ -345,6 +347,8 @@ let obstacles = [];
 let obstacleMeshes = [];
 let decorMeshes = [];
 let coverSpots = [];
+let currentMapLayout = null;
+let nextMapIndex = 0;
 
 const obsMaterials = [
     new THREE.MeshStandardMaterial({ color: 0x1a2535, roughness: 0.7, metalness: 0.3 }),
@@ -388,6 +392,121 @@ function buildCrates(cx, cz) {
     }
 }
 
+function buildArenaShell() {
+    buildObstacle(0, 80, 160, 10, 2);
+    buildObstacle(0, -80, 160, 10, 2);
+    buildObstacle(80, 0, 2, 10, 160);
+    buildObstacle(-80, 0, 2, 10, 160);
+}
+
+function addPickupSpot(list, type, x, z) {
+    list.push({ type, x, z });
+}
+
+const MAP_LAYOUTS = [
+    {
+        name: "Split Gate",
+        playerSpawn: { x: 0, z: 62 },
+        allySpawns: [{ x: -10, z: 54 }, { x: 10, z: 54 }, { x: 0, z: 48 }, { x: -22, z: 42 }],
+        enemySpawns: [{ x: -28, z: -54 }, { x: 0, z: -60 }, { x: 28, z: -54 }, { x: -8, z: -42 }, { x: 18, z: -38 }],
+        build(p) {
+            buildArenaShell();
+            buildObstacle(-28, 8, 8, 8, 86, 1);
+            buildObstacle(28, -8, 8, 8, 86, 1);
+            buildObstacle(0, 0, 18, 7, 16, 2);
+            buildObstacle(-10, 31, 32, 5, 5, 0);
+            buildObstacle(12, -31, 32, 5, 5, 0);
+            buildCrates(-42, 20);
+            buildCrates(42, -22);
+            addPickupSpot(p, 'ammo', -48, 42);
+            addPickupSpot(p, 'ammo', 48, -42);
+            addPickupSpot(p, 'medkit', 0, 25);
+            addPickupSpot(p, 'medkit', 0, -25);
+        }
+    },
+    {
+        name: "Haven Triad",
+        playerSpawn: { x: -52, z: 54 },
+        allySpawns: [{ x: -44, z: 50 }, { x: -55, z: 42 }, { x: -34, z: 55 }, { x: -22, z: 45 }],
+        enemySpawns: [{ x: 48, z: -52 }, { x: 28, z: -58 }, { x: 58, z: -34 }, { x: 14, z: -42 }, { x: 42, z: -20 }],
+        build(p) {
+            buildArenaShell();
+            buildObstacle(-12, 30, 70, 7, 5, 1);
+            buildObstacle(18, -28, 70, 7, 5, 1);
+            buildObstacle(-42, -8, 6, 7, 54, 0);
+            buildObstacle(42, 10, 6, 7, 54, 0);
+            buildObstacle(0, 0, 12, 7, 12, 2);
+            buildObstacle(-18, -48, 24, 5, 6, 3);
+            buildObstacle(18, 48, 24, 5, 6, 3);
+            addPickupSpot(p, 'ammo', -58, -18);
+            addPickupSpot(p, 'ammo', 58, 18);
+            addPickupSpot(p, 'ammo', 0, 0);
+            addPickupSpot(p, 'medkit', -20, 18);
+            addPickupSpot(p, 'medkit', 20, -18);
+        }
+    },
+    {
+        name: "Bind Cross",
+        playerSpawn: { x: 52, z: 58 },
+        allySpawns: [{ x: 44, z: 52 }, { x: 58, z: 44 }, { x: 34, z: 58 }, { x: 24, z: 44 }],
+        enemySpawns: [{ x: -52, z: -58 }, { x: -35, z: -56 }, { x: -58, z: -36 }, { x: -26, z: -34 }, { x: -44, z: -18 }],
+        build(p) {
+            buildArenaShell();
+            buildObstacle(0, 0, 7, 8, 120, 0);
+            buildObstacle(0, 0, 120, 8, 7, 0);
+            buildObstacle(28, 28, 18, 6, 18, 2);
+            buildObstacle(-28, -28, 18, 6, 18, 2);
+            buildObstacle(-42, 38, 8, 6, 28, 1);
+            buildObstacle(42, -38, 8, 6, 28, 1);
+            addPickupSpot(p, 'ammo', 54, -10);
+            addPickupSpot(p, 'ammo', -54, 10);
+            addPickupSpot(p, 'medkit', 18, -18);
+            addPickupSpot(p, 'medkit', -18, 18);
+        }
+    },
+    {
+        name: "Ascent Mid",
+        playerSpawn: { x: 0, z: 62 },
+        allySpawns: [{ x: -14, z: 56 }, { x: 14, z: 56 }, { x: -28, z: 48 }, { x: 28, z: 48 }],
+        enemySpawns: [{ x: -14, z: -58 }, { x: 14, z: -58 }, { x: -34, z: -44 }, { x: 34, z: -44 }, { x: 0, z: -34 }],
+        build(p) {
+            buildArenaShell();
+            buildObstacle(-52, 0, 7, 8, 90, 1);
+            buildObstacle(52, 0, 7, 8, 90, 1);
+            buildObstacle(0, 30, 42, 7, 6, 0);
+            buildObstacle(0, -30, 42, 7, 6, 0);
+            buildObstacle(-18, 0, 10, 6, 24, 2);
+            buildObstacle(18, 0, 10, 6, 24, 2);
+            buildCrates(0, 0);
+            addPickupSpot(p, 'ammo', -36, 0);
+            addPickupSpot(p, 'ammo', 36, 0);
+            addPickupSpot(p, 'medkit', 0, 44);
+            addPickupSpot(p, 'medkit', 0, -44);
+        }
+    },
+    {
+        name: "Lotus Loop",
+        playerSpawn: { x: -58, z: 0 },
+        allySpawns: [{ x: -54, z: -12 }, { x: -54, z: 12 }, { x: -42, z: 0 }, { x: -34, z: 18 }],
+        enemySpawns: [{ x: 56, z: -10 }, { x: 56, z: 10 }, { x: 40, z: -28 }, { x: 38, z: 28 }, { x: 22, z: 0 }],
+        build(p) {
+            buildArenaShell();
+            buildObstacle(0, -46, 94, 7, 6, 1);
+            buildObstacle(0, 46, 94, 7, 6, 1);
+            buildObstacle(-24, 0, 7, 7, 58, 0);
+            buildObstacle(24, 0, 7, 7, 58, 0);
+            buildObstacle(0, 0, 18, 6, 18, 2);
+            buildObstacle(-52, -28, 18, 5, 8, 3);
+            buildObstacle(52, 28, 18, 5, 8, 3);
+            addPickupSpot(p, 'ammo', -52, 34);
+            addPickupSpot(p, 'ammo', 52, -34);
+            addPickupSpot(p, 'ammo', 0, 52);
+            addPickupSpot(p, 'medkit', 0, -18);
+            addPickupSpot(p, 'medkit', 0, 18);
+        }
+    }
+];
+
 function generateRandomMap() {
     obstacleMeshes.forEach(m => scene.remove(m));
     decorMeshes.forEach(m => scene.remove(m));
@@ -395,39 +514,11 @@ function generateRandomMap() {
     obstacleMeshes = [];
     decorMeshes = [];
     coverSpots = [];
-
-    buildObstacle(0, 80, 160, 10, 2);
-    buildObstacle(0, -80, 160, 10, 2);
-    buildObstacle(80, 0, 2, 10, 160);
-    buildObstacle(-80, 0, 2, 10, 160);
-
-    const style = Math.floor(Math.random() * 4);
-    switch (style) {
-        case 0:
-            buildObstacle(-28, 0, 10, 9, 50, 1);
-            buildObstacle(28, 0, 10, 9, 50, 1);
-            buildObstacle(0, 0, 14, 7, 14, 2);
-            buildCrates(-14, 28);
-            buildCrates(14, -28);
-            break;
-        case 1:
-            for (let i = 0; i < 20; i++) {
-                const rx = (Math.random() - 0.5) * 120;
-                const rz = (Math.random() - 0.5) * 120;
-                if (Math.hypot(rx, rz) > 15) {
-                    buildObstacle(rx, rz, 3 + Math.random() * 5, 2 + Math.random() * 4, 3 + Math.random() * 5, Math.floor(Math.random() * 4));
-                }
-            }
-            break;
-        case 2:
-            buildObstacle(-35, -15, 38, 7, 6, 1);
-            buildObstacle(35, 15, 38, 7, 6, 1);
-            break;
-        default:
-            buildObstacle(-20, -50, 4, 8, 45);
-            buildObstacle(20, 50, 4, 8, 45);
-            break;
-    }
+    const pickupPlan = [];
+    currentMapLayout = MAP_LAYOUTS[nextMapIndex % MAP_LAYOUTS.length];
+    nextMapIndex++;
+    currentMapLayout.build(pickupPlan);
+    currentMapLayout.pickups = pickupPlan;
 
     if (coverSpots.length === 0) {
         for (let i = -60; i <= 60; i += 40) {
@@ -451,16 +542,18 @@ function checkCollision(x, z, size = 0.7) {
     return false;
 }
 
+const losRaycaster = new THREE.Raycaster();
+const aimRaycaster = new THREE.Raycaster();
+
 function hasLineOfSight(x1, z1, x2, z2) {
-    const dx = x2 - x1;
-    const dz = z2 - z1;
-    const dist = Math.hypot(dx, dz);
-    const steps = Math.ceil(dist / 0.5);
-    for (let i = 0; i <= steps; i++) {
-        const t = i / steps;
-        if (checkCollision(x1 + dx * t, z1 + dz * t, 0.4)) return false;
-    }
-    return true;
+    const from = new THREE.Vector3(x1, 1.55, z1);
+    const to = new THREE.Vector3(x2, 1.55, z2);
+    const dir = to.clone().sub(from);
+    const dist = dir.length();
+    if (dist <= 0.01) return true;
+    losRaycaster.set(from, dir.normalize());
+    losRaycaster.far = dist;
+    return losRaycaster.intersectObjects(obstacleMeshes, false).length === 0;
 }
 
 function formatTimer(seconds) {
@@ -469,7 +562,7 @@ function formatTimer(seconds) {
 }
 
 function getPrimarySlotLabel() {
-    return inventory[1] || t('primary_empty');
+    return inventory[2] || t('primary_empty');
 }
 
 function setCredits(value) {
@@ -478,8 +571,8 @@ function setCredits(value) {
 
 function applyAimState(active) {
     const d = currentWeaponName ? WEAPON_SHOP[currentWeaponName] : null;
-    isAiming = !!(active && d && d.hasScope && !isReloading && player.hp > 0 && roundState === 'live');
-    camera.fov = isAiming && d ? d.zoomFov : BASE_FOV;
+    isAiming = !!(active && d && d.type !== 'melee' && !isReloading && player.hp > 0 && roundState === 'live');
+    camera.fov = isAiming && d ? (d.hasScope ? d.zoomFov : Math.min(d.zoomFov || ADS_FOV, ADS_FOV)) : BASE_FOV;
     camera.updateProjectionMatrix();
     updateCrosshair();
 }
@@ -491,6 +584,33 @@ function updateScopeOverlay() {
     if (overlay) overlay.classList.toggle("visible", scoped);
     const crosshair = document.getElementById("crosshair");
     if (crosshair) crosshair.classList.toggle("scoped", scoped);
+}
+
+function getEnemyUnderCrosshair(maxDistance = 90) {
+    const dir = new THREE.Vector3();
+    camera.getWorldDirection(dir);
+    aimRaycaster.set(camera.position, dir.normalize());
+    aimRaycaster.far = maxDistance;
+    for (const enemy of enemies) {
+        if (!enemy.alive || enemy.dying) continue;
+        if (!hasLineOfSight(player.x, player.z, enemy.x, enemy.z)) continue;
+        const hits = aimRaycaster.intersectObject(enemy.model, true);
+        if (hits.length > 0) return enemy;
+    }
+    return null;
+}
+
+function getKnifeTarget() {
+    const dir = new THREE.Vector3();
+    camera.getWorldDirection(dir);
+    aimRaycaster.set(camera.position, dir.normalize());
+    aimRaycaster.far = 3.0;
+    for (const enemy of enemies) {
+        if (!enemy.alive || enemy.dying) continue;
+        const hits = aimRaycaster.intersectObject(enemy.model, true);
+        if (hits.length > 0 && hits[0].distance <= 3.0) return enemy;
+    }
+    return null;
 }
 
 function showBlocker(titleKey, descKey) {
@@ -546,14 +666,33 @@ function createPickup(type, x, z) {
 
 function spawnRoundPickups() {
     clearPickups();
-    const fixed = [
+    const fixed = currentMapLayout?.pickups?.length ? currentMapLayout.pickups : [
         { type: 'medkit', x: -18, z: 18 },
-        { type: 'medkit', x: 18, z: -18 },
-        { type: 'ammo', x: -34, z: -8 },
-        { type: 'ammo', x: 34, z: 8 },
-        { type: 'ammo', x: 0, z: -30 }
+        { type: 'ammo', x: 18, z: -18 }
     ];
     fixed.forEach(p => createPickup(p.type, p.x, p.z));
+}
+
+function findNearestPickup(type, x, z) {
+    let best = null;
+    let bestDist = Infinity;
+    for (const p of pickups) {
+        if (p.type !== type) continue;
+        const dist = Math.hypot(x - p.x, z - p.z);
+        if (dist < bestDist) {
+            bestDist = dist;
+            best = p;
+        }
+    }
+    return best;
+}
+
+function consumePickupAt(index) {
+    const pickup = pickups[index];
+    if (!pickup) return null;
+    scene.remove(pickup.mesh);
+    pickups.splice(index, 1);
+    return pickup;
 }
 
 function collectPickups(delta) {
@@ -574,10 +713,24 @@ function collectPickups(delta) {
             ammoSlots[currentSlot].reserve += Math.max(d.magSize, Math.ceil(d.magSize * 1.5));
             addKillFeed(t('ammo_pickup'));
         }
-        scene.remove(p.mesh);
-        pickups.splice(i, 1);
+        consumePickupAt(i);
         updateHUD();
     }
+}
+
+function collectBotPickup(bot) {
+    for (let i = pickups.length - 1; i >= 0; i--) {
+        const p = pickups[i];
+        if (p.type !== 'ammo') continue;
+        if (Math.hypot(bot.x - p.x, bot.z - p.z) > 1.4) continue;
+        bot.reserve += bot.assignedWeapon.reserve;
+        bot.ammo = Math.min(bot.assignedWeapon.magSize, bot.ammo + Math.ceil(bot.assignedWeapon.magSize * 0.5));
+        bot.state = 'chase';
+        bot.resourceTarget = null;
+        consumePickupAt(i);
+        return true;
+    }
+    return false;
 }
 
 // ==================== ARMA 3D =================================
@@ -690,6 +843,7 @@ function spawnBot(type, x, z) {
     const tier = Math.min(Math.floor(roundNumber / 2), 2);
     const weapons = BOT_WEAPON_SETS[tier];
     const wName = weapons[Math.floor(Math.random() * weapons.length)];
+    const assignedWeapon = { ...WEAPON_SHOP[wName], name: wName };
     const wGroup = buildWeaponMesh(wName);
     wGroup.scale.setScalar(0.55);
     wGroup.position.set(0.35, 1.1, -0.3);
@@ -699,7 +853,16 @@ function spawnBot(type, x, z) {
         type, model, weaponMesh: wGroup,
         x, z, hp: 100, lastShot: 0,
         speed: type === 'enemy' ? 0.07 + roundNumber * 0.005 : 0.06,
-        weapon: wName,
+        weapon: wName, assignedWeapon,
+        ammo: assignedWeapon.magSize,
+        reserve: assignedWeapon.reserve,
+        isReloading: false,
+        reloadTimer: 0,
+        seesTarget: false,
+        reactionTimer: 0,
+        reactionDelay: 0.3 + Math.random() * 0.2,
+        resourceTarget: null,
+        walkTime: Math.random() * Math.PI * 2,
         strafeTimer: 0, strafeDir: 1, state: 'idle',
         coverPos: null, coverTimer: 0, alive: true, dying: false, deathTimer: 0
     };
@@ -713,23 +876,32 @@ function removeBot(bot, list, idx) {
     }
     bot.alive = false;
     bot.dying = true;
-    bot.deathTimer = 1.0;
-    setTimeout(() => {
-        scene.remove(bot.model);
-        if (bot.coverPos) bot.coverPos.occupied = false;
-        list.splice(idx, 1);
-    }, 1000);
+    bot.removeIdx = idx;
+    bot.deathTimer = 3 + Math.random() * 2;
+    if (bot.coverPos) bot.coverPos.occupied = false;
 }
 
 function updateDyingBots(delta) {
-    [...allies, ...enemies].forEach(bot => {
-        if (bot.dying) {
+    [allies, enemies].forEach(list => {
+        for (let i = list.length - 1; i >= 0; i--) {
+            const bot = list[i];
+            if (!bot.dying) continue;
+            const total = Math.max(0.001, bot.deathTotal || bot.deathTimer);
+            if (!bot.deathTotal) bot.deathTotal = bot.deathTimer;
             bot.deathTimer -= delta;
-            bot.model.rotation.x = Math.min(Math.PI / 2, (1 - bot.deathTimer) * 2);
-            bot.model.position.y = Math.max(0, bot.deathTimer * 1.2);
-            bot.model.children.forEach(child => {
-                if (child.material) child.material.opacity = Math.max(0, bot.deathTimer);
+            const progress = 1 - Math.max(0, bot.deathTimer / total);
+            bot.model.rotation.x = Math.min(Math.PI / 2, progress * 2.2);
+            bot.model.position.y = Math.max(0, 0.25 * Math.sin(progress * Math.PI));
+            bot.model.traverse(child => {
+                if (child.material) {
+                    child.material.transparent = true;
+                    child.material.opacity = Math.max(0, 1 - progress);
+                }
             });
+            if (bot.deathTimer <= 0) {
+                scene.remove(bot.model);
+                list.splice(i, 1);
+            }
         }
     });
 }
@@ -758,21 +930,20 @@ function shootCurrentWeapon() {
 
     if (d.type === "melee") {
         lastShotTime = now;
+        knifeSlashAnim = 1;
         sound.shoot('melee');
-        for (let j = enemies.length - 1; j >= 0; j--) {
-            const en = enemies[j];
-            if (Math.hypot(camera.position.x - en.x, camera.position.z - en.z) < 2.8) {
-                en.hp -= d.damage;
-                flashHitMarker();
-                sound.hit();
-                addKillFeed(`🗡 ${currentWeaponName} → ${t('killed_enemy')}`);
-                if (en.hp <= 0) {
-                    sound.kill();
-                    removeBot(en, enemies, j);
-                    setCredits(credits + 300);
-                    updateHUD();
-                }
-                break;
+        const target = getKnifeTarget();
+        if (target) {
+            const j = enemies.indexOf(target);
+            target.hp -= 150;
+            flashHitMarker();
+            sound.hit();
+            addKillFeed(`${currentWeaponName} ${t('killed_enemy')}`);
+            if (target.hp <= 0 && j >= 0) {
+                sound.kill();
+                removeBot(target, enemies, j);
+                setCredits(credits + 300);
+                updateHUD();
             }
         }
         return;
@@ -814,7 +985,6 @@ function shootCurrentWeapon() {
         createBullet(spawnPos, shotDir, 'player', d);
     }
 }
-
 // ==================== RECARGA =================================
 function reloadWeapon() {
     if (player.hp <= 0 || !currentWeaponName || currentWeaponName === "Faca") return;
@@ -885,33 +1055,74 @@ function updateDashCooldown(delta) {
 }
 
 // ==================== IA DOS BOTS =============================
+function getBotTarget(bot) {
+    if (bot.type === 'enemy') {
+        if (player.hp > 0) return { x: player.x, z: player.z, hp: player.hp, model: null, isPlayer: true };
+        return allies.find(a => a.alive && !a.dying) || null;
+    }
+    return enemies.find(e => e.alive && !e.dying) || null;
+}
+
+function updateBotReload(bot, delta) {
+    if (!bot.isReloading) return false;
+    bot.reloadTimer -= delta;
+    if (bot.reloadTimer <= 0) {
+        const need = bot.assignedWeapon.magSize - bot.ammo;
+        const take = Math.min(need, bot.reserve);
+        bot.ammo += take;
+        bot.reserve -= take;
+        bot.isReloading = false;
+    }
+    return bot.isReloading;
+}
+
+function startBotReload(bot) {
+    if (bot.isReloading || bot.reserve <= 0) return false;
+    bot.isReloading = true;
+    bot.reloadTimer = bot.assignedWeapon.reloadTime / 1000;
+    bot.state = 'reload';
+    return true;
+}
+
 function runBotAI(bot, delta) {
     if (!bot.alive || bot.dying) return;
     const isEnemy = bot.type === 'enemy';
-    let tx, tz;
-    if (isEnemy) {
-        if (player.hp > 0) { tx = player.x; tz = player.z; }
-        else if (allies.length > 0) { tx = allies[0].x; tz = allies[0].z; }
-        else return;
-    } else {
-        if (enemies.length > 0) { tx = enemies[0].x; tz = enemies[0].z; }
-        else return;
-    }
+    const weaponData = bot.assignedWeapon;
+    updateBotReload(bot, delta);
+    collectBotPickup(bot);
 
+    const target = getBotTarget(bot);
+    if (!target) return;
+
+    const reserveLow = bot.reserve < weaponData.reserve * 0.2;
+    const ammoTarget = reserveLow ? findNearestPickup('ammo', bot.x, bot.z) : null;
+    const tx = ammoTarget ? ammoTarget.x : target.x;
+    const tz = ammoTarget ? ammoTarget.z : target.z;
     const dx = tx - bot.x;
     const dz = tz - bot.z;
-    const dist = Math.hypot(dx, dz);
-    const los = hasLineOfSight(bot.x, bot.z, tx, tz);
+    const dist = Math.max(0.001, Math.hypot(dx, dz));
+    const targetLos = !ammoTarget && hasLineOfSight(bot.x, bot.z, target.x, target.z);
+
+    if (targetLos) {
+        bot.reactionTimer = bot.seesTarget ? Math.max(0, bot.reactionTimer - delta) : bot.reactionDelay;
+        bot.seesTarget = true;
+    } else {
+        bot.seesTarget = false;
+        bot.reactionTimer = bot.reactionDelay;
+    }
+
+    if (ammoTarget) bot.state = 'seek_ammo';
+    else if (bot.isReloading) bot.state = 'reload';
 
     bot.coverTimer -= delta;
-    if (!los && bot.coverTimer <= 0 && coverSpots.length > 0) {
+    if (!targetLos && !ammoTarget && bot.coverTimer <= 0 && coverSpots.length > 0) {
         let bestCover = null;
         let bestScore = -Infinity;
         for (let s of coverSpots) {
             if (s.occupied && s.occupied !== bot) continue;
             const distToCover = Math.hypot(bot.x - s.x, bot.z - s.z);
-            if (distToCover < 20 && !hasLineOfSight(s.x, s.z, tx, tz) && Math.hypot(s.x - tx, s.z - tz) > 10) {
-                const score = -distToCover + Math.hypot(s.x - tx, s.z - tz) * 0.5;
+            if (distToCover < 20 && !hasLineOfSight(s.x, s.z, target.x, target.z) && Math.hypot(s.x - target.x, s.z - target.z) > 10) {
+                const score = -distToCover + Math.hypot(s.x - target.x, s.z - target.z) * 0.5;
                 if (score > bestScore) {
                     bestScore = score;
                     bestCover = s;
@@ -927,7 +1138,7 @@ function runBotAI(bot, delta) {
         }
     }
 
-    if (los && bot.state === 'take_cover') {
+    if (targetLos && bot.state === 'take_cover') {
         bot.state = 'chase';
         if (bot.coverPos) {
             bot.coverPos.occupied = false;
@@ -936,7 +1147,7 @@ function runBotAI(bot, delta) {
     }
 
     let mx = 0, mz = 0;
-    if (bot.state === 'take_cover' && bot.coverPos) {
+    if (bot.state === 'take_cover' && bot.coverPos && !ammoTarget) {
         const cvx = bot.coverPos.x - bot.x;
         const cvz = bot.coverPos.z - bot.z;
         const cvd = Math.hypot(cvx, cvz);
@@ -946,7 +1157,10 @@ function runBotAI(bot, delta) {
         } else {
             bot.state = 'idle';
         }
-    } else if (dist < 6 && los) {
+    } else if (ammoTarget) {
+        mx = dx / dist;
+        mz = dz / dist;
+    } else if (dist < 6 && targetLos) {
         mx = -dx / dist;
         mz = -dz / dist;
     } else {
@@ -954,10 +1168,25 @@ function runBotAI(bot, delta) {
         mz = dz / dist;
     }
 
+    bot.strafeTimer -= delta;
+    if (bot.strafeTimer <= 0) {
+        bot.strafeTimer = 0.45 + Math.random() * 0.75;
+        bot.strafeDir = Math.random() > 0.5 ? 1 : -1;
+    }
+    if (targetLos && !ammoTarget && dist < 45) {
+        mx += (-dz / dist) * bot.strafeDir * 0.55;
+        mz += (dx / dist) * bot.strafeDir * 0.55;
+        const len = Math.hypot(mx, mz);
+        if (len > 0) { mx /= len; mz /= len; }
+    }
+
     let spd = bot.speed;
     if (bot.state === 'take_cover') spd *= 1.4;
+    if (bot.state === 'seek_ammo') spd *= 1.25;
+    if (bot.isReloading) spd *= 0.45;
     const nx = bot.x + mx * spd;
     const nz = bot.z + mz * spd;
+    const moved = Math.hypot(nx - bot.x, nz - bot.z) > 0.001;
     if (!checkCollision(nx, nz, 1.0)) {
         bot.x = nx;
         bot.z = nz;
@@ -965,21 +1194,31 @@ function runBotAI(bot, delta) {
         bot.strafeDir *= -1;
     }
 
-    bot.model.position.set(bot.x, 0, bot.z);
-    bot.model.rotation.y = Math.atan2(dx, dz);
+    bot.walkTime += moved ? delta * 12 : delta * 2;
+    bot.model.position.set(bot.x, moved ? Math.sin(bot.walkTime) * 0.08 : 0, bot.z);
+    bot.model.rotation.y = Math.atan2(target.x - bot.x, target.z - bot.z);
 
-    const weaponData = WEAPON_SHOP[bot.weapon];
+    if (bot.ammo <= 0) {
+        if (!startBotReload(bot) && bot.reserve <= 0) {
+            bot.resourceTarget = findNearestPickup('ammo', bot.x, bot.z);
+        }
+        return;
+    }
+    if (bot.isReloading || ammoTarget) return;
+
     const now = Date.now();
-    if (now - bot.lastShot > weaponData.fireRate * (isEnemy ? 1.5 : 2.2) && los) {
+    if (now - bot.lastShot > weaponData.fireRate * (isEnemy ? 1.5 : 2.2) && targetLos && bot.reactionTimer <= 0) {
         const accuracy = isEnemy ? 0.05 : 0.08;
-        const verticalAim = ((1.55 - 1.6) / Math.max(dist, 0.001)) + (Math.random() - 0.5) * accuracy * 0.25;
+        const shotDist = Math.max(0.001, Math.hypot(target.x - bot.x, target.z - bot.z));
+        const verticalAim = ((1.55 - 1.6) / shotDist) + (Math.random() - 0.5) * accuracy * 0.25;
         const shotDir = new THREE.Vector3(
-            dx / dist + (Math.random() - 0.5) * accuracy,
+            (target.x - bot.x) / shotDist + (Math.random() - 0.5) * accuracy,
             verticalAim,
-            dz / dist + (Math.random() - 0.5) * accuracy
+            (target.z - bot.z) / shotDist + (Math.random() - 0.5) * accuracy
         ).normalize();
         const spawnPos = new THREE.Vector3(bot.x, 1.6, bot.z);
         createBullet(spawnPos, shotDir, bot.type, weaponData);
+        bot.ammo--;
         bot.lastShot = now;
     }
 }
@@ -1031,12 +1270,11 @@ function updateSlotsHUD() {
         const slotEl = document.getElementById(`slot-${i}`);
         const nameEl = document.getElementById(`sn${i}`);
         if (slotEl) slotEl.classList.toggle("active", currentSlot === i);
-        if (nameEl) nameEl.textContent = inventory[i] || (i === 1 ? t('primary_empty') : "—");
+        if (nameEl) nameEl.textContent = inventory[i] || (i === 2 ? t('primary_empty') : "-");
     });
-    document.getElementById("ld-slot1").textContent = `${t('slot')} 1: ${getPrimarySlotLabel()}`;
-    document.getElementById("ld-slot2").textContent = `${t('slot')} 2: ${inventory[2] || "Classic"}`;
+    document.getElementById("ld-slot1").textContent = `${t('slot')} 1: ${inventory[1] || "Classic"}`;
+    document.getElementById("ld-slot2").textContent = `${t('slot')} 2: ${getPrimarySlotLabel()}`;
 }
-
 function updateDashHUD() {
     // Elementos opcionais, se existirem
     const dash1 = document.getElementById("dash1");
@@ -1071,6 +1309,7 @@ function updateCrosshair() {
     if (ch) {
         ch.classList.toggle("moving", isMoving && !isAiming);
         ch.classList.toggle("aiming", isAiming);
+        ch.classList.toggle("target", !!getEnemyUnderCrosshair());
     }
     updateScopeOverlay();
 }
@@ -1200,6 +1439,12 @@ function updateWeaponAnims(delta) {
         if (currentRecoil < 0) currentRecoil = 0;
     }
     weaponGroup.position.z += currentRecoil;
+    if (knifeSlashAnim > 0) {
+        weaponGroup.position.z -= Math.sin(knifeSlashAnim * Math.PI) * 0.38;
+        weaponGroup.rotation.x -= Math.sin(knifeSlashAnim * Math.PI) * 0.5;
+        knifeSlashAnim -= delta * 8;
+        if (knifeSlashAnim < 0) knifeSlashAnim = 0;
+    }
     if (weaponSwitchAnim > 0) {
         weaponGroup.position.y -= weaponSwitchAnim * 0.12;
         weaponSwitchAnim -= delta * 10;
@@ -1273,8 +1518,8 @@ function resetRound() {
     spawnRoundPickups();
     roundNumber++;
 
-    player.x = 0;
-    player.z = 62;
+    player.x = currentMapLayout?.playerSpawn?.x ?? 0;
+    player.z = currentMapLayout?.playerSpawn?.z ?? 62;
     player.hp = 100;
     camera.position.set(player.x, 1.9, player.z);
     targetYaw = 0;
@@ -1297,9 +1542,8 @@ function resetRound() {
             ammoSlots[slot].reserve = w.reserve;
         }
     }
-    currentSlot = 2;
-    currentWeaponName = inventory[2] || "Faca";
-    if (!inventory[2]) { currentSlot = 3; currentWeaponName = "Faca"; }
+    currentSlot = inventory[1] ? 1 : (inventory[2] ? 2 : 3);
+    currentWeaponName = inventory[currentSlot] || "Faca";
     updateHUD();
     updateWeaponVisual();
     updateSlotsHUD();
@@ -1307,12 +1551,15 @@ function resetRound() {
 
     const allyCount = 2 + Math.min(roundNumber - 1, 2);
     const enemyCount = 3 + Math.min(roundNumber - 1, 4);
+    const allySpawns = currentMapLayout?.allySpawns || [];
+    const enemySpawns = currentMapLayout?.enemySpawns || [];
     for (let i = 0; i < allyCount; i++) {
-        spawnBot('ally', (Math.random() - 0.5) * 30, 55 - Math.random() * 10);
+        const spawn = allySpawns[i % allySpawns.length] || { x: (Math.random() - 0.5) * 30, z: 55 - Math.random() * 10 };
+        spawnBot('ally', spawn.x + (Math.random() - 0.5) * 2, spawn.z + (Math.random() - 0.5) * 2);
     }
     for (let i = 0; i < enemyCount; i++) {
-        const angle = (i / enemyCount) * Math.PI * 2;
-        spawnBot('enemy', Math.cos(angle) * (25 + Math.random() * 20), -55 + Math.random() * 15);
+        const spawn = enemySpawns[i % enemySpawns.length] || { x: (Math.random() - 0.5) * 30, z: -55 + Math.random() * 10 };
+        spawnBot('enemy', spawn.x + (Math.random() - 0.5) * 2, spawn.z + (Math.random() - 0.5) * 2);
     }
     setupShopInterface();
     drawMinimap();
@@ -1336,10 +1583,12 @@ function handleRoundEnd(victory) {
     } else {
         enemyScore++;
         setCredits(credits + 1400);
-        inventory[1] = null;
-        inventory[2] = "Classic";
-        ammoSlots[2].inMag = WEAPON_SHOP.Classic.magSize;
-        ammoSlots[2].reserve = WEAPON_SHOP.Classic.reserve;
+        inventory[1] = "Classic";
+        inventory[2] = null;
+        ammoSlots[1].inMag = WEAPON_SHOP.Classic.magSize;
+        ammoSlots[1].reserve = WEAPON_SHOP.Classic.reserve;
+        ammoSlots[2].inMag = 0;
+        ammoSlots[2].reserve = 0;
         showBlocker(null, 'select_weapon');
         document.getElementById('match-title').textContent = t('defeat');
     }
@@ -1366,8 +1615,8 @@ function resetMatch() {
     enemyScore = 0;
     roundNumber = 0;
     setCredits(800);
-    inventory[1] = null;
-    inventory[2] = "Classic";
+    inventory[1] = "Classic";
+    inventory[2] = null;
     inventory[3] = "Faca";
     document.getElementById("team-score").textContent = teamScore;
     document.getElementById("enemy-score").textContent = enemyScore;
@@ -1432,7 +1681,7 @@ window.addEventListener('mousedown', e => {
         if (d && !d.isAutomatic) shootCurrentWeapon();
     } else if (e.button === 2) {
         const d = currentWeaponName ? WEAPON_SHOP[currentWeaponName] : null;
-        if (d && d.hasScope && !isReloading) applyAimState(true);
+        if (d && d.type !== 'melee' && !isReloading) applyAimState(true);
     }
 });
 
@@ -1553,26 +1802,27 @@ function gameLoop(now) {
             b.life--;
             const bp = b.mesh.position;
             let hit = checkCollision(bp.x, bp.z, 0.2);
-            if (!hit && b.owner === 'player') {
+            if (!hit && (b.owner === 'player' || b.owner === 'ally')) {
                 for (let j = enemies.length - 1; j >= 0; j--) {
                     const en = enemies[j];
+                    if (!en.alive || en.dying) continue;
                     if (Math.hypot(bp.x - en.x, bp.z - en.z) < 1.2 && Math.abs(bp.y - 1.4) < 1.8) {
                         en.hp -= b.damage;
                         hit = true;
-                        flashHitMarker();
+                        if (b.owner === 'player') flashHitMarker();
                         sound.hit();
                         if (en.hp <= 0) {
                             sound.kill();
-                            addKillFeed(`🎯 ${currentWeaponName} ${t('killed_enemy')}`);
+                            addKillFeed(b.owner === 'player' ? `${currentWeaponName} ${t('killed_enemy')}` : t('ally_kill'));
                             removeBot(en, enemies, j);
-                            setCredits(credits + 300);
+                            if (b.owner === 'player') setCredits(credits + 300);
                             updateHUD();
                         }
                         break;
                     }
                 }
-            } else if (!hit && b.owner === 'enemy' && player.hp > 0) {
-                if (Math.hypot(bp.x - player.x, bp.z - player.z) < 1.0 && Math.abs(bp.y - 1.8) < 1.5) {
+            } else if (!hit && b.owner === 'enemy') {
+                if (player.hp > 0 && Math.hypot(bp.x - player.x, bp.z - player.z) < 1.0 && Math.abs(bp.y - 1.8) < 1.5) {
                     player.hp -= b.damage * 0.6;
                     hit = true;
                     flashDamage();
@@ -1587,13 +1837,24 @@ function gameLoop(now) {
                         break;
                     }
                 }
+                if (!hit) {
+                    for (let j = allies.length - 1; j >= 0; j--) {
+                        const ally = allies[j];
+                        if (!ally.alive || ally.dying) continue;
+                        if (Math.hypot(bp.x - ally.x, bp.z - ally.z) < 1.2 && Math.abs(bp.y - 1.4) < 1.8) {
+                            ally.hp -= b.damage;
+                            hit = true;
+                            if (ally.hp <= 0) removeBot(ally, allies, j);
+                            break;
+                        }
+                    }
+                }
             }
             if (hit || b.life <= 0) {
                 scene.remove(b.mesh);
                 bullets.splice(i, 1);
             }
         }
-
         allies.forEach(a => runBotAI(a, delta));
         enemies.forEach(e => runBotAI(e, delta));
 
